@@ -32,8 +32,8 @@ function createAuth(pool) {
 
         const hash = await bcrypt.hash(password, 12);
         const result = await pool.query(
-          `INSERT INTO usuarios (nombre,correo,password_hash)
-           VALUES ($1,$2,$3)
+          `INSERT INTO usuarios (nombre,correo,password_hash,activo)
+           VALUES ($1,$2,$3,TRUE)
            RETURNING id,nombre,correo,rol`,
           [nombre, correo, hash]
         );
