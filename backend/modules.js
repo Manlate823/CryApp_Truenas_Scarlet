@@ -1,7 +1,7 @@
 'use strict';
 const jwt=require('jsonwebtoken');
 const {randomUUID}=require('crypto');
-const UUID=/^[0-9a-f-]{36}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 module.exports=function(pool){
  let initialized;
  const init=()=>initialized ||= (async()=>{
@@ -10,7 +10,7 @@ module.exports=function(pool){
   await pool.query(`CREATE TABLE IF NOT EXISTS cryapp_presence (user_id uuid PRIMARY KEY, last_seen timestamptz NOT NULL DEFAULT now())`);
  })().catch(e=>{initialized=null;throw e});
  const send=(r,c,o)=>{r.writeHead(c,{'Content-Type':'application/json; charset=utf-8'});r.end(JSON.stringify(o))};
- const body=async req=>{let a=[],n=0;for await(const b of req){n+=b.length;if(n>200000)throw Error('Solicitud demasiado grande');a.push(b)}return JSON.parse(Buffer.concat(a).toString()||'{}')};
+ const body=async req=>{let a=[],n=0;for await(const b of req){n+=b.length;if(n>200000){const e=Error('Solicitud demasiado grande');e.status=413;throw e};a.push(b)}try{return JSON.parse(Buffer.concat(a).toString()||'{}')}catch{const e=Error('JSON inválido');e.status=400;throw e}};
  return async(req,res)=>{try{
   const m=/^Bearer\s+(.+)$/i.exec(req.headers.authorization||'');if(!m||!process.env.JWT_SECRET)return send(res,401,{error:'Sesión requerida'});
   let user;try{user=jwt.verify(m[1],process.env.JWT_SECRET,{algorithms:['HS256']})}catch{return send(res,401,{error:'Sesión inválida'})}
@@ -35,5 +35,5 @@ module.exports=function(pool){
   if(req.method==='DELETE'&&id){const r=await pool.query('DELETE FROM cryapp_module_records WHERE id=$1 AND owner_id=$2 AND module=$3',[id,uid,mod]);return send(res,r.rowCount?200:404,r.rowCount?{ok:true}:{error:'Registro no encontrado'})}
   if(req.method==='PATCH'&&id&&mod==='market'){const b=await body(req);if(!['ACTIVE','RESERVED','SOLD'].includes(b.status))return send(res,400,{error:'Estado inválido'});const r=await pool.query("UPDATE cryapp_module_records SET payload=jsonb_set(payload,'{status}',to_jsonb($1::text)) WHERE id=$2 AND owner_id=$3 AND module='market'",[b.status,id,uid]);return send(res,r.rowCount?200:404,r.rowCount?{ok:true}:{error:'Publicación no encontrada'})}
   return send(res,405,{error:'Método no permitido'});
- }catch(e){console.error('Modules:',e.message);return send(res,500,{error:'No se pudo completar la operación. Revisa los permisos y las tablas de PostgreSQL.'})}};
+ }catch(e){if(e.status)return send(res,e.status,{error:e.message});console.error('Modules:',e.message);return send(res,500,{error:'No se pudo completar la operación. Revisa los permisos y las tablas de PostgreSQL.'})}};
 };
