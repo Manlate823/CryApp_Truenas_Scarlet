@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS cryapp_admin_owner (user_id uuid PRIMARY KEY REFERENCES usuarios(id) ON DELETE RESTRICT, email text NOT NULL UNIQUE, password_hash text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());

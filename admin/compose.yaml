@@ -1,0 +1,30 @@
+services:
+  cryapp-admin:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18092:3000"
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+    networks:
+      - postgres_internal
+      - cloudflared_internal
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+networks:
+  cloudflared_internal:
+    external: true
+    name: ix-cloudflared_default
+  postgres_internal:
+    external: true
+    name: ix-postgres_manlate_internal

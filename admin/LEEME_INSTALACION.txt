@@ -1,0 +1,47 @@
+CRYAPP ADMIN PRO V1.0 - INSTALACION PILOTO
+==========================================
+IMPORTANTE: el panel es una nueva aplicacion independiente. No reemplaza CryApp.
+
+1. Descomprimir este ZIP en:
+   /mnt/Almacenamiento_HDD/BaseDatos/CryApp_Admin
+
+2. Hacer respaldo de PostgreSQL antes de cualquier migracion.
+
+3. Ejecutar sql/001_admin.sql en la base cryapp_db con una cuenta autorizada.
+   La migracion CREA TABLAS; no elimina las existentes.
+   Si el usuario de la API no puede crear tablas, usar el administrador PostgreSQL.
+
+4. Crear archivo .env a partir de .env.example con las credenciales de BD
+   ya existentes y un ADMIN_JWT_SECRET NUEVO, aleatorio, de 64 caracteres.
+   Generarlo con: openssl rand -hex 32
+   Nunca publicar ni enviar este archivo. chmod 600 .env
+
+5. ACTIVAR PRIMER SUPERADMIN (solo una vez, tras comprobar el correo):
+   INSERT INTO cryapp_admin_roles(user_id,role)
+   SELECT id,'superadmin' FROM usuarios WHERE correo='TU_CORREO_REAL'
+   ON CONFLICT(user_id) DO UPDATE SET role='superadmin';
+   Verificar que la consulta afecto exactamente una cuenta.
+
+6. En la carpeta CryApp_Admin:
+   docker compose up -d --build
+   docker compose logs --tail 50
+   El servicio queda enlazado SOLO a 127.0.0.1:18091 en el host TrueNAS.
+   curl http://127.0.0.1:18091/health
+
+7. PRUEBAS: iniciar sesion con correo/clave CryApp de superadmin,
+   consultar usuarios, registrar solicitud manual, aprobar y comprobar la
+   suscripcion. No aprobar solicitudes sin verificar el dinero recibido.
+
+8. CLOUDFLARE: NO crear la ruta publica hasta protegerla con Cloudflare
+   Access (politica de correos autorizados + MFA) y validar el panel.
+   El destino de Tunnel depende de si cloudflared esta en contenedor o host.
+   Si corre en contenedor, 127.0.0.1 es el propio contenedor, NO TrueNAS.
+   En ese caso se requiere configurar conectividad privada o una ruta de
+   proxy restringida; NO abrir PostgreSQL a Internet.
+
+9. Limitaciones de esta V1.0: la solicitud de pago se registra desde el
+   panel (no desde CryApp); no hay subida de comprobantes, pasarela ni
+   integracion de permisos premium en la API publica de CryApp. El panel
+   guarda los planes en nuevas tablas, pero CryApp todavia no los exige.
+   Aprobacion de otro pago reemplaza el vencimiento anterior; no acumula dias.
+   Requiere pruebas de integracion con el esquema real antes de produccion.
