@@ -11,6 +11,10 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: "587"
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
     networks:
       - postgres_internal
       - cloudflared_internal
