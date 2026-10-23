@@ -52,3 +52,26 @@ Tablas restauradas: 12.
 Comparacion con produccion: usuarios 5/5, ejemplares 3/3, camadas 0/0, suscripciones 2/2.
 Pendiente: copia externa, alertas, verificacion completa y ejecucion automatica real.
 No eliminar respaldos existentes.
+
+
+## CONTINUACION CRYAPP - 2026-10-22 - SESION FINAL
+
+PALABRA PARA RETOMAR: Continuamos CryApp.
+
+OBJETIVO: Terminar CryApp y CryApp Admin PRO, probar los cambios y fusionar los cambios aprobados a main sin perder usuarios, fotografias, mensajes ni suscripciones. Trabajar UN COMANDO POR VEZ y esperar el resultado del usuario.
+
+GITHUB: Repositorio privado Manlate823/CryApp_Truenas_Scarlet. Produccion: main. Desarrollo: desarrollo/admin-pro. Ultimo commit de desarrollo confirmado: fa2bc85. Ultimo commit desplegado en CryApp segun marcador: 23ce8ad6b104ae9ab47bf7471d2ee0276d364475. Hay 30 archivos diferentes entre origin/main y desarrollo/admin-pro (959 inserciones, 4 eliminaciones). NO fusionar sin validar.
+
+CAMBIOS PENDIENTES: Integracion admin/, correccion de fotos y nombres del chat, cancelacion de suscripcion PRO por el administrador, calculos financieros multimoneda, reembolsos, migracion SQL 003_usd_financial_adjustments.sql, cambio de correo con SMTP y documentacion. Validar cuidadosamente finanzas, migraciones, suscripciones, login, fotografias y compatibilidad del despliegue.
+
+AUTOMATIZACION: CryApp Auto Update (cron ID 1) cada 15 minutos desde main. CryApp Admin PRO GitHub Check (cron ID 2) cada 15 minutos, solo comprobacion. El despliegue de Admin PRO requiere aprobacion. Respaldo diario (cron ID 3) habilitado a las 03:00 America/Santo_Domingo. Archivo auto_enabled sin contenido visible; revisar semantica antes de fusionar a main para evitar despliegue inesperado.
+
+RESPALDOS: Script /mnt/Almacenamiento_HDD/BaseDatos/CryApp_Deploy/cryapp_backup_diario.sh. Respaldo manual backup-20261022-225611 con cryapp_db.dump, fotos.tar, uploads.tar y SHA256SUMS. SHA256: los tres archivos OK. Restauracion exitosa en contenedor aislado PostgreSQL 17 cryapp-restore-test-pg17. Doce tablas restauradas. Conteos coincidentes: usuarios 5, ejemplares 3, camadas 0, suscripciones 2. No se ha verificado aun la primera ejecucion automatica del respaldo; backup_diario.log no existia al comprobarlo. Falta copia independiente y alertas de respaldo.
+
+TRUENAS: Pool Almacenamiento_HDD en espejo de dos discos. Resilver iniciado el 2026-10-22 a las 19:33:48 AST. Ultimo avance comunicado: 43.03 por ciento. Estado ONLINE, sin errores de datos conocidos en las comprobaciones anteriores. ESPERAR FIN DEL RESILVER antes de fusionar/desplegar cambios importantes. Confirmar zpool status y errores al retomar. No usar boot-pool para respaldos de datos.
+
+ALERTAS: SMTP no configurado, servicio de correo sin destinatario; SNMP Trap apunta a localhost. Una alerta WARNING por dos fallos de login API de truenas_admin desde 10.0.0.11 y 10.0.0.9. No se mostraron ERROR ni CRITICAL en el filtro consultado.
+
+ERRORES Y LECCIONES: Fotos del chat y nombres de criadero requerian correccion. Se corrigieron delimitadores SQL DO y se preparo migracion repetible. Admin PRO incluye cambios financieros que requieren pruebas adicionales. No asumir que cron configurado significa cron ejecutado. No asumir que respaldos en el mismo pool protegen ante perdida del pool. No sobrescribir produccion ni restaurar DB sin autorizacion.
+
+SIGUIENTE PASO: Esperar que termine resilver. Verificar estado ZFS, revision de auto-update, pruebas aisladas de cambios SQL y Admin PRO, revisar diferencias de main, preparar fusion controlada y verificar produccion. Documentar cada avance en GitHub.
