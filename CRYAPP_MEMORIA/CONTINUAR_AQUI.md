@@ -41,3 +41,14 @@ Backup codigo: deploy-20261022-223006.
 Contenedores activos: CryApp API, CryApp Web, Admin PRO y Admin TEST.
 Pendiente: verificar respuesta funcional de API, restauracion de backups, funciones de suscripcion y pruebas financieras en TEST.
 Regla: no desplegar cambios sin respaldo y actualizar esta memoria despues de cada avance.
+
+## PROTECCION DE DATOS - 2026-10-22
+Respaldo diario configurado en TrueNAS: tarea ID 3, a las 03:00 (hora del servidor).
+Script: /mnt/Almacenamiento_HDD/BaseDatos/CryApp_Deploy/cryapp_backup_diario.sh
+Respaldo manual verificado: backup-20261022-225611.
+Incluye PostgreSQL, fotos, uploads y SHA256SUMS.
+Restauracion exitosa en contenedor aislado PostgreSQL 17: cryapp-restore-test-pg17.
+Tablas restauradas: 12.
+Comparacion con produccion: usuarios 5/5, ejemplares 3/3, camadas 0/0, suscripciones 2/2.
+Pendiente: copia externa, alertas, verificacion completa y ejecucion automatica real.
+No eliminar respaldos existentes.
