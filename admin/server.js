@@ -35,7 +35,8 @@ const server=http.createServer(async(req,res)=>{const p=new URL(req.url,'http://
  }
  if(req.method==='POST'&&p==='/api/subscriptions/manage'){
   const b=await read(req);if(!/^[0-9a-f-]{36}$/i.test(b.userId||'')||!['assign','renew','cancel'].includes(b.action))return json(res,400,{error:'Solicitud inválida'});
-  if(b.userId===u.id)return json(res,400,{error:'No se permite modificar la suscripción de la cuenta propietaria desde aquí'});
+  // Permitir quitar el plan incluso al propietario. La autenticación administrativa
+  // depende de cryapp_admin_owner, no de cryapp_user_subscriptions.
   const months=Number(b.months);if(b.action!=='cancel'&&(!['pro','premium'].includes(b.planId)||!Number.isInteger(months)||months<1||months>36))return json(res,400,{error:'Plan o duración inválidos (1 a 36 meses)'});
   const c=await pool.connect();try{await c.query('BEGIN');const person=await c.query('SELECT id FROM usuarios WHERE id=$1 FOR UPDATE',[b.userId]);if(!person.rowCount){await c.query('ROLLBACK');return json(res,404,{error:'Usuario no encontrado'})}
   if(b.action==='cancel'){await c.query('DELETE FROM cryapp_user_subscriptions WHERE user_id=$1',[b.userId]);}
