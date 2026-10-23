@@ -447,6 +447,30 @@ async function profile(){
   let u=session?.user||{};
   try{const me=await api('auth.me');if(me?.user){u=me.user;session.user=u;localStorage.setItem('cryapp_truenas_session',JSON.stringify(session));paintUser()}}catch(e){}
   contentEl.innerHTML=`<div class="panel"><div class="toolbar"><div><span class="eyebrow">CUENTA CRYAPP</span><h3>Mi perfil</h3><p class="muted">Administra tu identidad y los datos de tu criadero.</p></div></div><div class="profile-grid"><div><img id="profilePreview" class="profile-photo" src="${esc(u?.photoUrl||'assets/CryApp_Logo.png')}" alt="Foto de perfil"><div class="field"><label>Foto de usuario</label><input id="profilePhoto" class="file-input" type="file" accept="image/*"></div></div><form id="pf"><div class="field"><label>Nombre</label><input name="name" value="${esc(u?.name||'')}"></div><div class="field"><label>Nombre del criadero</label><input name="farmName" value="${esc(u?.farmName||'')}"></div><div class="field"><label>Teléfono</label><input name="phone" value="${esc(u?.phone||'')}"></div><div class="field"><label>Correo</label><input value="${esc(u?.email||'')}" disabled></div><button type="submit">Guardar perfil</button></form></div></div>`;
+  const accountTools=document.createElement('section');
+  accountTools.className='panel';
+  accountTools.innerHTML='<h3>Seguridad y datos de mi cuenta</h3><p class="muted">Descarga una copia de tus datos o solicita la eliminación definitiva de tu cuenta.</p><div class="actions"><button type="button" id="cryAccountBackup" class="secondary">Descargar copia de seguridad</button><button type="button" id="cryAccountDelete" class="danger">Eliminar mi cuenta definitivamente</button></div><p class="muted">La exportación actual es JSON y contiene enlaces a fotografías; no incluye los archivos de imagen.</p>';
+  contentEl.appendChild(accountTools);
+  document.getElementById('cryAccountBackup').onclick=async()=>{
+    try{
+      const res=await fetch('/api/auth/backup',{headers:{Authorization:'Bearer '+session.token},cache:'no-store'});
+      if(!res.ok)throw Error('No se pudo generar la copia');
+      const blob=await res.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');
+      a.href=url;a.download='cryapp-copia-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+    }catch(e){toast(e.message);}
+  };
+  document.getElementById('cryAccountDelete').onclick=async()=>{
+    if(!confirm('Esta acción es irreversible. Descarga tu copia de seguridad antes de continuar. ¿Deseas seguir?'))return;
+    const confirmText=prompt('Escribe exactamente ELIMINAR MI CUENTA para confirmar:');
+    if(confirmText!=='ELIMINAR MI CUENTA')return;
+    const password=prompt('Introduce tu contraseña para confirmar la eliminación:');
+    if(!password)return;
+    try{
+      const res=await fetch('/api/auth/delete-account',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.token},body:JSON.stringify({confirm:confirmText,password})});
+      const data=await res.json();if(!res.ok)throw Error(data.error||'No se pudo eliminar la cuenta');
+      localStorage.removeItem('cryapp_truenas_session');location.reload();
+    }catch(e){toast(e.message);}
+  };
   const photoInput=document.getElementById('profilePhoto'), preview=document.getElementById('profilePreview'), form=document.getElementById('pf');
   photoInput?.addEventListener('change',()=>{const f=photoInput.files?.[0];if(f&&preview)preview.src=URL.createObjectURL(f)});
   form?.addEventListener('submit',async e=>{e.preventDefault();try{const data=Object.fromEntries(new FormData(form));const f=photoInput?.files?.[0];const photo=await file64(f);if(photo)data.photo=photo;const r=await api('profile.save',{profile:data});if(r?.user){session.user=r.user;localStorage.setItem('cryapp_truenas_session',JSON.stringify(session));paintUser()}toast('Perfil actualizado')}catch(x){toast(x?.message||'No se pudo guardar el perfil')}});
