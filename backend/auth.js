@@ -256,7 +256,8 @@ function createAuth(pool) {
         await client.query('DELETE FROM cryapp_payment_requests WHERE user_id=$1',[decoded.sub]);
         await client.query('DELETE FROM cryapp_user_subscriptions WHERE user_id=$1',[decoded.sub]);
         await client.query('DELETE FROM ejemplares WHERE usuario_id=$1',[decoded.sub]);
-        await client.query('DELETE FROM cryapp_module_records WHERE owner_id=$1',[decoded.sub]).catch(e=>{if(e.code!=='42P01')throw e});
+        const hasModules=await client.query("SELECT to_regclass('public.cryapp_module_records') AS table_name");
+        if(hasModules.rows[0].table_name)await client.query('DELETE FROM cryapp_module_records WHERE owner_id=$1',[decoded.sub]);
         await client.query('DELETE FROM usuarios WHERE id=$1',[decoded.sub]);
         await client.query('COMMIT');
         res.writeHead(200,{'Cache-Control':'no-store'});return res.end(JSON.stringify({ok:true}));
