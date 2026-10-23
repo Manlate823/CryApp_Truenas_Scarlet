@@ -15,3 +15,6 @@ No afirmar que USD o ajustes contables ya funcionan en producción.
 
 ## Alcance de acceso
 GitHub conectado y con permisos de escritura comprobados. No hay acceso directo comprobado al terminal de TrueNAS desde esta conversación.
+
+## Código nuevo en desarrollo (2026-10-22)
+admin/financial.js y admin/tests/financial.test.js creados en GitHub. Calculadora aislada para USD/DOP y reembolsos confirmados. NO integrada ni probada en TrueNAS.
