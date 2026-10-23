@@ -1,13 +1,12 @@
 # Punto exacto para continuar
 
 Fecha: 2026-10-22.
-Última acción: documentación de memoria creada en GitHub en la rama desarrollo/admin-pro. No se ha ejecutado migración SQL en servidor TEST ni se ha cambiado producción.
-Archivo preparatorio: admin/sql/003_usd_financial_adjustments.sql.
-Último commit previo de esa migración: 27324c29064d1740f81ce05037812c2a2271e962.
+Último cambio verificado: admin/sql/003_usd_financial_adjustments.sql, corrección de bloques DO $$ en commit e6b8975320627d9326ce39af737c1955e6cdb6ba, rama desarrollo/admin-pro.
+Estado: guardado en GitHub; NO ejecutado en PostgreSQL TEST ni desplegado en producción.
 
-Próximo paso técnico:
-1. Revisar esquema existente y compatibilidad de la migración con tipos de columnas de pagos y usuarios.
-2. Implementar backend + admin para moneda explícita USD y reembolsos reales auditados.
-3. Probar en TEST. No aplicar en producción hasta validación.
+Próximo paso:
+1. Validar migración contra esquema real en TEST (incluidos gen_random_uuid, restricciones y referencias).
+2. Implementar precios USD, cobros USD y devoluciones auditadas, conservando DOP histórico.
+3. Probar cancelación sin reembolso y reembolso real; no publicar sin validación.
 
-No pedir al usuario que vuelva a explicar el contexto ni que ejecute comandos innecesarios. Leer esta carpeta al retomar.
+Regla: actualizar memoria después de cada cambio y no pedir al usuario repetir contexto.
