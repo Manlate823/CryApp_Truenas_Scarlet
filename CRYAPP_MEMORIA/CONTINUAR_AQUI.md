@@ -17,3 +17,6 @@ Siguiente: ejecutar node --test admin/tests/financial.test.js en TEST, ajustar e
 
 ## Última actualización
 Commit 667d7d625f56a5bd4390159903ff48761366d688: SQL de reembolsos alineado con admin/financial.js. NO ejecutado ni probado en TrueNAS. Próximo: validar migración en PostgreSQL TEST, ejecutar pruebas unitarias y conectar endpoints con transacciones que impidan reembolsos excesivos o duplicados. No desplegar producción todavía.
+
+## Petición más reciente
+El usuario quiere poder quitar un plan incluso al administrador. Eliminada en admin/server.js la validación que rechazaba b.userId===u.id, commit 50f824745b5ec4ca87b0585585b827ad6aa0a7db. Se mantiene rol de admin independiente de suscripción. Pendiente probar cancelación de la cuenta propietaria en TEST y desplegar tras validación; no afirmar que ya aparece en producción.
