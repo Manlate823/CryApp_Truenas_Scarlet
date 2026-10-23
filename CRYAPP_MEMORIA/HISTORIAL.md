@@ -13,3 +13,5 @@
 - 2026-10-22: creados admin/financial.js y admin/tests/financial.test.js (commits f89b00bccc58567fae1ff6697962a9fc8c77fcbc y b0fcf2f43248888cf27f6b4f59c735e20781b173). Calculadora aislada USD/DOP y pruebas escritas; no conectada a API ni ejecutadas pruebas.
 
 - 2026-10-22: migración 003 actualizada para reembolsos con estados pending/confirmed/rejected, fecha de confirmación y múltiples reembolsos parciales (commit 667d7d625f56a5bd4390159903ff48761366d688). Solo GitHub desarrollo, sin ejecución SQL.
+
+- 2026-10-22: eliminado bloqueo que impedía cancelar la suscripción del propio administrador en admin/server.js (commit 50f824745b5ec4ca87b0585585b827ad6aa0a7db). Rama desarrollo/admin-pro; sin pruebas ni despliegue en producción.
