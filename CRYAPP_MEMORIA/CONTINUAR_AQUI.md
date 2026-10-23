@@ -14,3 +14,6 @@ Regla: actualizar memoria después de cada cambio y no pedir al usuario repetir 
 ## Avance de código 2026-10-22
 Archivos nuevos: admin/financial.js y admin/tests/financial.test.js, rama desarrollo/admin-pro. Módulo puro que separa USD/DOP, calcula bruto/reembolsos confirmados/neto y rechaza reembolsos excesivos; pruebas unitarias escritas pero NO ejecutadas. No conectado a endpoints ni desplegado.
 Siguiente: ejecutar node --test admin/tests/financial.test.js en TEST, ajustar el esquema SQL para status='confirmed' de reembolsos, conectar el cálculo al API y panel, validar antes de producción.
+
+## Última actualización
+Commit 667d7d625f56a5bd4390159903ff48761366d688: SQL de reembolsos alineado con admin/financial.js. NO ejecutado ni probado en TrueNAS. Próximo: validar migración en PostgreSQL TEST, ejecutar pruebas unitarias y conectar endpoints con transacciones que impidan reembolsos excesivos o duplicados. No desplegar producción todavía.
