@@ -10,3 +10,7 @@ Próximo paso:
 3. Probar cancelación sin reembolso y reembolso real; no publicar sin validación.
 
 Regla: actualizar memoria después de cada cambio y no pedir al usuario repetir contexto.
+
+## Avance de código 2026-10-22
+Archivos nuevos: admin/financial.js y admin/tests/financial.test.js, rama desarrollo/admin-pro. Módulo puro que separa USD/DOP, calcula bruto/reembolsos confirmados/neto y rechaza reembolsos excesivos; pruebas unitarias escritas pero NO ejecutadas. No conectado a endpoints ni desplegado.
+Siguiente: ejecutar node --test admin/tests/financial.test.js en TEST, ajustar el esquema SQL para status='confirmed' de reembolsos, conectar el cálculo al API y panel, validar antes de producción.
