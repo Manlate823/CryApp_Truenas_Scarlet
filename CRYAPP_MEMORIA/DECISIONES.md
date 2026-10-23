@@ -6,3 +6,5 @@
 4. Cancelar una suscripción quita acceso PRO/PREMIUM, pero no equivale por sí solo a devolución de dinero. Un reembolso efectivamente realizado se registra y descuenta de los ingresos netos, sin borrar el pago original. No descontar dinero dos veces.
 5. Cambios en rama de desarrollo, probar en entorno aislado y publicar después de validación. No tocar producción ni sustituir el diseño sin aprobación.
 6. Usuario prefiere que se use GitHub conectado directamente y que no se le pidan repetidamente comandos o datos ya documentados.
+
+7. El propietario/administrador puede quitar su propio plan PRO/PREMIUM desde Admin PRO sin perder la cuenta ni los permisos administrativos; la cancelación solo afecta la suscripción.
