@@ -26,3 +26,18 @@ El usuario eliminó manualmente del archivo /mnt/Almacenamiento_HDD/BaseDatos/Cr
 
 ## Corrección foto de chat (2026-10-23)
 Se identificó la causa en backend/modules.js: GET /api/modules/contacts devolvía photoUrl y farmName como cadenas vacías, pese a que la UI web/js/app.js ya utiliza avatarMarkup para contactos, cabecera y modal. Se modificó SELECT para leer usuarios.foto y usuarios.criadero y mapearlos a photoUrl/farmName. Commit c5fd0a17e4db7eadb8f1854d55446053d7e77b56 en desarrollo/admin-pro. NO probado en TEST ni desplegado. Próximo: validar esquema y endpoint en TEST, verificar fotos visibles y desplegar con rollback tras aprobación. Pendientes: backup ZIP/TrueNAS y eliminación de cuenta.
+
+## AVANCE CONFIRMADO - 2026-10-22
+GitHub main: commit 23ce8ad6b104ae9ab47bf7471d2ee0276d364475 publicado y registrado.
+Correccion: fotos y nombres de criaderos visibles en el chat de CryApp.
+Actualizacion automatica: tarea TrueNAS cada 15 minutos; deteccion y registro del commit confirmados.
+Repositorio produccion: /mnt/Almacenamiento_HDD/BaseDatos/CryApp_Produccion
+Aplicacion: /mnt/Almacenamiento_HDD/BaseDatos/CryApp
+Actualizador: /mnt/Almacenamiento_HDD/BaseDatos/CryApp_Deploy
+Respaldos: /mnt/Almacenamiento_HDD/BaseDatos/CryApp_Backups
+Backup PostgreSQL: auto-data-20261022-223004/cryapp_db.dump (62 KB).
+Backup fotos: auto-data-20261022-223004/fotos.tar (190 KB).
+Backup codigo: deploy-20261022-223006.
+Contenedores activos: CryApp API, CryApp Web, Admin PRO y Admin TEST.
+Pendiente: verificar respuesta funcional de API, restauracion de backups, funciones de suscripcion y pruebas financieras en TEST.
+Regla: no desplegar cambios sin respaldo y actualizar esta memoria despues de cada avance.
