@@ -22,7 +22,7 @@ module.exports=function(pool){
   }
   if(mod==='presence'&&req.method==='POST'){await pool.query('INSERT INTO cryapp_presence(user_id,last_seen) VALUES($1,now()) ON CONFLICT(user_id) DO UPDATE SET last_seen=now()',[uid]);return send(res,200,{ok:true});}
   if(mod==='contacts'&&req.method==='GET'){
-   const r=await pool.query("SELECT u.id,u.nombre,u.correo,(p.last_seen>now()-interval '45 seconds') AS online FROM usuarios u LEFT JOIN cryapp_presence p ON p.user_id=u.id WHERE u.id<>$1 ORDER BY u.nombre LIMIT 200",[uid]);return send(res,200,{ok:true,items:r.rows.map(x=>({userId:x.id,name:x.nombre,email:x.correo,farmName:"",photoUrl:"",online:x.online===true,unread:0}))});
+   const r=await pool.query("SELECT u.id,u.nombre,u.correo,u.foto,u.criadero,(p.last_seen>now()-interval '45 seconds') AS online FROM usuarios u LEFT JOIN cryapp_presence p ON p.user_id=u.id WHERE u.id<>$1 ORDER BY u.nombre LIMIT 200",[uid]);return send(res,200,{ok:true,items:r.rows.map(x=>({userId:x.id,name:x.nombre,email:x.correo,farmName:x.criadero||"",photoUrl:x.foto||"",online:x.online===true,unread:0}))});
   }
   if(mod==='thread'&&req.method==='GET'&&UUID.test(id||'')){
    const r=await pool.query("SELECT id,owner_id,payload,created_at FROM cryapp_module_records WHERE module='messages' AND ((owner_id=$1 AND payload->>'recipientId'=$2) OR (owner_id=$2::uuid AND payload->>'recipientId'=$3)) ORDER BY created_at ASC LIMIT 500",[uid,id,uid]);return send(res,200,{ok:true,items:r.rows.map(x=>({messageId:x.id,senderId:x.owner_id,text:x.payload.text,createdAt:x.created_at,status:'SENT'}))});
