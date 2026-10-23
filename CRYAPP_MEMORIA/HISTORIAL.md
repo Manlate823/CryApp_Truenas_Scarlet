@@ -9,3 +9,5 @@
 - 2026-10-22: añadida regla de mantenimiento continuo de CRYAPP_MEMORIA en LEEME_PRIMERO.md (commit ad1271adc54d814b51b3481fed69cf1fc48237fc). Se actualizará durante futuras sesiones con acceso al repositorio; no es un proceso en segundo plano.
 
 - 2026-10-22: corregidos delimitadores PostgreSQL DO $$ de admin/sql/003_usd_financial_adjustments.sql (commit e6b8975320627d9326ce39af737c1955e6cdb6ba). Cambio guardado en desarrollo/admin-pro, sin prueba SQL ni despliegue.
+
+- 2026-10-22: creados admin/financial.js y admin/tests/financial.test.js (commits f89b00bccc58567fae1ff6697962a9fc8c77fcbc y b0fcf2f43248888cf27f6b4f59c735e20781b173). Calculadora aislada USD/DOP y pruebas escritas; no conectada a API ni ejecutadas pruebas.
