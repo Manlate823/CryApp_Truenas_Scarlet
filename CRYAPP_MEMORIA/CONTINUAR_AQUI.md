@@ -20,3 +20,6 @@ Commit 667d7d625f56a5bd4390159903ff48761366d688: SQL de reembolsos alineado con 
 
 ## Petición más reciente
 El usuario quiere poder quitar un plan incluso al administrador. Eliminada en admin/server.js la validación que rechazaba b.userId===u.id, commit 50f824745b5ec4ca87b0585585b827ad6aa0a7db. Se mantiene rol de admin independiente de suscripción. Pendiente probar cancelación de la cuenta propietaria en TEST y desplegar tras validación; no afirmar que ya aparece en producción.
+
+## Comprobación TrueNAS reportada por usuario (2026-10-23)
+El usuario eliminó manualmente del archivo /mnt/Almacenamiento_HDD/BaseDatos/CryApp_Admin/server.js el bloqueo para cancelar su propia suscripción y reinició cryapp_admin-cryapp-admin-1. Docker ps mostró el contenedor Up y el puerto 127.0.0.1:18092->3000. Aún NO está comprobado que el endpoint permita la operación ni que el cambio persista tras un despliegue automático. El comando node --check que mostró el usuario parece apuntar a /app/server.jss, por lo que falta verificar /app/server.js y /health. No cancelar realmente la suscripción para probar sin aprobación explícita.
