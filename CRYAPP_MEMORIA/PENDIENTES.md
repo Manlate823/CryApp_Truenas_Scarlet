@@ -20,3 +20,6 @@
 - En Mi perfil > Seguridad y cuenta, permitir solicitar eliminación definitiva de la propia cuenta con autenticación reciente, confirmación explícita, revocación de sesiones y tratamiento documentado de registros y datos compartidos. No ejecutar eliminaciones durante pruebas ni tocar cuentas ajenas.
 - En Mi perfil > Mis copias de seguridad, permitir exportación privada y restauración validada de los datos propios (ejemplares, genealogía, camadas, registros y archivos asociados), con control de propiedad, límites, versiones y protección frente a duplicados. Probar en entorno aislado primero.
 - Preservar interfaz negro/rojo/dorado y el diseño HTML existente. Aún NO implementado ni desplegado. Usuario proporcionó capturas de perfil y modal de chat.
+
+### Decisión del usuario sobre respaldos
+El usuario eligió AMBAS modalidades: (1) descargar copia ZIP a su computadora y (2) guardar copia en TrueNAS, con posibilidad de restauración. Diseñar respaldo privado por usuario, almacenamiento seguro fuera de carpeta pública, exportación/restauración autenticadas y pruebas aisladas antes de producción. No implementado aún.
