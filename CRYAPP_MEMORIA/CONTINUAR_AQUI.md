@@ -23,3 +23,6 @@ El usuario quiere poder quitar un plan incluso al administrador. Eliminada en ad
 
 ## Comprobación TrueNAS reportada por usuario (2026-10-23)
 El usuario eliminó manualmente del archivo /mnt/Almacenamiento_HDD/BaseDatos/CryApp_Admin/server.js el bloqueo para cancelar su propia suscripción y reinició cryapp_admin-cryapp-admin-1. Docker ps mostró el contenedor Up y el puerto 127.0.0.1:18092->3000. Aún NO está comprobado que el endpoint permita la operación ni que el cambio persista tras un despliegue automático. El comando node --check que mostró el usuario parece apuntar a /app/server.jss, por lo que falta verificar /app/server.js y /health. No cancelar realmente la suscripción para probar sin aprobación explícita.
+
+## Corrección foto de chat (2026-10-23)
+Se identificó la causa en backend/modules.js: GET /api/modules/contacts devolvía photoUrl y farmName como cadenas vacías, pese a que la UI web/js/app.js ya utiliza avatarMarkup para contactos, cabecera y modal. Se modificó SELECT para leer usuarios.foto y usuarios.criadero y mapearlos a photoUrl/farmName. Commit c5fd0a17e4db7eadb8f1854d55446053d7e77b56 en desarrollo/admin-pro. NO probado en TEST ni desplegado. Próximo: validar esquema y endpoint en TEST, verificar fotos visibles y desplegar con rollback tras aprobación. Pendientes: backup ZIP/TrueNAS y eliminación de cuenta.
