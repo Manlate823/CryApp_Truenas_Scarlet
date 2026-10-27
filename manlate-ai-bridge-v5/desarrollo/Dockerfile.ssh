@@ -1,0 +1,6 @@
+# Imagen de desarrollo para pruebas locales. No incluye credenciales.
+FROM python:3.12-alpine
+RUN apk add --no-cache openssh-client
+WORKDIR /app
+COPY . /app
+CMD ["python", "/app/server_v5.py"]
