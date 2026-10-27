@@ -1,8 +1,10 @@
 # Imagen de desarrollo: usuario sin privilegios y sin credenciales dentro de la imagen.
 FROM python:3.12-alpine
 RUN apk add --no-cache openssh-client \
-    && mkdir -p /data/v5 \
-    && chown -R 568:568 /data/v5
+    && if ! awk -F: '$3 == 568 { found=1 } END { exit found ? 0 : 1 }' /etc/group; then printf 'bridge:x:568:\n' >> /etc/group; fi \
+    && if ! awk -F: '$3 == 568 { found=1 } END { exit found ? 0 : 1 }' /etc/passwd; then printf 'bridge:x:568:568:Manlate AI Bridge:/home/bridge:/bin/false\n' >> /etc/passwd; fi \
+    && mkdir -p /home/bridge /data/v5 \
+    && chown -R 568:568 /home/bridge /data/v5
 WORKDIR /app
 COPY --chown=568:568 . /app
 USER 568:568
