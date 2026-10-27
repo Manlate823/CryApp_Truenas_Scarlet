@@ -1,6 +1,10 @@
-# Imagen de desarrollo para pruebas locales. No incluye credenciales.
+# Imagen de desarrollo: usuario sin privilegios y sin credenciales dentro de la imagen.
 FROM python:3.12-alpine
-RUN apk add --no-cache openssh-client
+RUN apk add --no-cache openssh-client \
+    && mkdir -p /data/v5 \
+    && chown -R 568:568 /data/v5
 WORKDIR /app
-COPY . /app
+COPY --chown=568:568 . /app
+USER 568:568
+ENV BRIDGE_MEMORY_DB=/data/v5/memoria.sqlite
 CMD ["python", "/app/server_v5.py"]
