@@ -12,8 +12,41 @@ import memoria_v5
 import server_v5
 import shell_truenas
 import github_v5
+import cryapp_edicion_segura_v1 as edicion_segura
 
 class BridgeTests(unittest.TestCase):
+    def test_failed_edit_restores_original_from_verified_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = os.path.join(directory, 'cryapp_dev')
+            codigo = os.path.join(base, 'codigo')
+            backups = os.path.join(base, 'respaldos')
+            registros = os.path.join(base, 'registros')
+            os.makedirs(os.path.join(codigo, 'web'))
+            os.makedirs(backups)
+            os.makedirs(registros)
+            target = os.path.join(codigo, 'web', 'index.html')
+            original = b'<html>original</html>'
+            with open(target, 'wb') as f:
+                f.write(original)
+
+            with patch.object(edicion_segura, 'BASE', type(edicion_segura.BASE)(base)), \
+                    patch.object(edicion_segura, 'CODIGO', type(edicion_segura.CODIGO)(codigo)), \
+                    patch.object(edicion_segura, 'RESPALDOS', type(edicion_segura.RESPALDOS)(backups)), \
+                    patch.object(edicion_segura, 'REGISTROS', type(edicion_segura.REGISTROS)(registros)), \
+                    patch.object(edicion_segura, '_registrar_edicion', side_effect=OSError('fallo simulado')):
+                original_hash = edicion_segura._hash(original)
+                with self.assertRaisesRegex(RuntimeError, 'restauró automáticamente'):
+                    edicion_segura.editar_archivo_cryapp(
+                        'web/index.html', '<html>nuevo</html>', original_hash
+                    )
+
+            with open(target, 'rb') as f:
+                self.assertEqual(f.read(), original)
+            backups_created = os.listdir(backups)
+            self.assertEqual(len(backups_created), 1)
+            with open(os.path.join(backups, backups_created[0]), 'rb') as f:
+                self.assertEqual(f.read(), original)
+
     def test_memory_persists_and_is_project_scoped(self):
         with tempfile.TemporaryDirectory() as directory:
             old = memoria_v5.DB
