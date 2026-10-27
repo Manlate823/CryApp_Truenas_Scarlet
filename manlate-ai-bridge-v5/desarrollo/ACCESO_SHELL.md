@@ -2,7 +2,7 @@
 
 Estado: experimental. V5 puede ejecutar comandos en TrueNAS mediante SSH usando una clave dedicada, pero no se ha validado una conexión real desde este contenedor. No instalar ni exponer V5 hasta completar la configuración OAuth, red, clave y pruebas de respaldo.
 
-Los comandos se ejecutan con los permisos de `BRIDGE_SSH_USER`. Una cuenta con sudo sin contraseña amplía el alcance. El usuario debe autorizar la ejecución de cada tarea mediante su solicitud al asistente; no se aceptan contraseñas interactivas ni se abre una terminal TTY.
+El instalador configura para `BRIDGE_SSH_USER` una regla sudo `NOPASSWD: ALL`, según el permiso total solicitado. Por eso las operaciones pueden llegar a root y administrar todo el TrueNAS. La conexión sigue protegida por OAuth y por la clave SSH dedicada; no se aceptan contraseñas interactivas ni se abre una terminal TTY. El instalador respalda una regla sudo anterior antes de reemplazarla.
 
 ## Requisitos
 
@@ -10,7 +10,7 @@ Los comandos se ejecutan con los permisos de `BRIDGE_SSH_USER`. Una cuenta con s
 2. Usar una cuenta dedicada del host y una clave privada dedicada. No guardar claves ni contraseñas en GitHub.
 3. Montar la clave como archivo de solo lectura (predeterminado `/run/secrets/bridge_ssh_key`) y autorizar su clave pública en TrueNAS.
 4. Montar un `known_hosts` creado después de verificar la huella del servidor por un canal confiable (predeterminado `/run/secrets/bridge_known_hosts`). SSH exige `StrictHostKeyChecking=yes`.
-5. Habilitar `BRIDGE_SHELL_ENABLED=true` solo después de configurar host, usuario, puerto y archivos SSH.
+5. El instalador activa `BRIDGE_SHELL_ENABLED=true`, configura la clave y valida `visudo` antes de aplicar la regla sudo. La instalación debe ejecutarse conscientemente porque concede acceso root al puente.
 
 ## Configuración de OAuth V5
 
