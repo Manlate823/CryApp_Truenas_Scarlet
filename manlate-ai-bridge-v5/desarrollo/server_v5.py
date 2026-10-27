@@ -306,7 +306,8 @@ class Handler(BaseHTTPRequestHandler):
                     }
                     ,{"name":"editar_archivo_cryapp","description":"Edita un archivo autorizado de CryApp con copia de respaldo y verificación SHA-256.","inputSchema":{"type":"object","properties":{"ruta":{"type":"string"},"contenido":{"type":"string"},"sha256_esperado":{"type":"string"}},"required":["ruta","contenido","sha256_esperado"],"additionalProperties":False}},
                     {"name":"guardar_memoria","description":"Guarda una nota de continuidad por proyecto; no guardar contraseñas ni secretos.","inputSchema":{"type":"object","properties":{"proyecto":{"type":"string"},"contenido":{"type":"string"}},"required":["proyecto","contenido"],"additionalProperties":False}},
-                    {"name":"consultar_memoria","description":"Consulta notas de continuidad guardadas para un proyecto.","inputSchema":{"type":"object","properties":{"proyecto":{"type":"string"},"limite":{"type":"integer","minimum":1,"maximum":50}},"required":["proyecto"],"additionalProperties":False}}
+                    {"name":"consultar_memoria","description":"Consulta notas de continuidad guardadas para un proyecto.","inputSchema":{"type":"object","properties":{"proyecto":{"type":"string"},"limite":{"type":"integer","minimum":1,"maximum":50}},"required":["proyecto"],"additionalProperties":False}},
+                    {"name":"ejecutar_shell_truenas","description":"Ejecuta en la shell del usuario SSH de TrueNAS cuando el propietario lo solicite. Puede modificar el sistema.","annotations":{"readOnlyHint":False,"destructiveHint":True,"openWorldHint":True},"inputSchema":{"type":"object","properties":{"comando":{"type":"string"},"tiempo":{"type":"integer","minimum":1,"maximum":120}},"required":["comando"],"additionalProperties":False}}
                 ]
                 }
 
@@ -390,6 +391,9 @@ class Handler(BaseHTTPRequestHandler):
                 elif herramienta == "consultar_memoria":
                     from memoria_v5 import consultar
                     datos = consultar(argumentos.get("proyecto"), argumentos.get("limite", 20))
+                elif herramienta == "ejecutar_shell_truenas":
+                    from shell_truenas import ejecutar
+                    datos = ejecutar(argumentos.get("comando"), argumentos.get("tiempo", 60))
                 elif herramienta == "estado_memoria":
                     datos = {
                         "servicio": "Manlate AI Bridge",
