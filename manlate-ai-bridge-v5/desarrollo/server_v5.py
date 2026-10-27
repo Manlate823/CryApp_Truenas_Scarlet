@@ -186,10 +186,9 @@ class Handler(BaseHTTPRequestHandler):
 
         self.send_response(401)
         self.send_header("Content-Type", "application/json")
-        self.send_header(
-            "WWW-Authenticate",
-            'Bearer resource_metadata="' + self.url_metadatos_recurso() + '"'
-        )
+        metadata_url = self.url_metadatos_recurso()
+        challenge = 'Bearer resource_metadata="' + metadata_url + '"' if metadata_url else "Bearer"
+        self.send_header("WWW-Authenticate", challenge)
         self.end_headers()
         self.wfile.write(
             b'{"error":"No autorizado"}'
