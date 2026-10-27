@@ -3,7 +3,8 @@ set -Eeuo pipefail
 
 # Instalador interactivo para TrueNAS SCALE. Instala V5 en paralelo; nunca elimina V4.
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-V4_CONTAINER="manlate-ai-bridge-oauth-dev"
+OAUTH_CONTAINER="manlate-ai-bridge-oauth-dev"
+PROJECT_CONTAINER="manlate-ai-bridge-cryapp-v4"
 V5_CONTAINER="manlate-ai-bridge-v5"
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -22,30 +23,39 @@ need getent
 need visudo
 
 docker compose version >/dev/null 2>&1 || fail "Docker Compose no está disponible."
-docker inspect "$V4_CONTAINER" >/dev/null 2>&1 || fail "No encuentro el contenedor V4 '$V4_CONTAINER'; no modifiqué nada."
+docker inspect "$OAUTH_CONTAINER" >/dev/null 2>&1 || fail "No encuentro el contenedor OAuth '$OAUTH_CONTAINER'; no modifiqué nada."
+docker inspect "$PROJECT_CONTAINER" >/dev/null 2>&1 || fail "No encuentro el contenedor CryApp '$PROJECT_CONTAINER'; no modifiqué nada."
 docker network inspect ix-cloudflared_default >/dev/null 2>&1 || fail "No encuentro la red ix-cloudflared_default; no modifiqué nada."
 
-# Lee sólo rutas montadas y los dos identificadores OAuth no secretos. Nunca imprime el entorno.
-mapfile -t CURRENT < <(docker inspect "$V4_CONTAINER" | python3 -c '
+# OAuth vive en el puente OAuth DEV; las rutas de CryApp y la BD se montan en cryapp-v4.
+# Sólo se extraen identificadores no secretos y fuentes de mounts; nunca se imprime el entorno.
+mapfile -t OAUTH_CONFIG < <(docker inspect "$OAUTH_CONTAINER" | python3 -c '
 import json,sys
 x=json.load(sys.stdin)[0]
 e={}
 for item in x.get("Config",{}).get("Env",[]):
  k,sep,v=item.partition("=")
  if sep:e[k]=v
-m={i.get("Destination"):i.get("Source") for i in x.get("Mounts",[])}
-for value in (e.get("OAUTH_CLIENT_ID",""),e.get("OAUTH_ALLOWED_SUB",""),m.get("/run/secrets/oauth_client_secret",""),m.get("/cryapp_dev",""),m.get("/cryapp",""),m.get("/data/memoria.sqlite","")):
+mounts={i.get("Destination"):i.get("Source") for i in x.get("Mounts",[])}
+for value in (e.get("OAUTH_CLIENT_ID",""),e.get("OAUTH_ALLOWED_SUB",""),mounts.get("/run/secrets/oauth_client_secret","")):
  print(value)
 ')
-[[ "${#CURRENT[@]}" -eq 6 ]] || fail "No pude leer la configuración de V4."
-OAUTH_CLIENT_ID="${CURRENT[0]}"
-OAUTH_ALLOWED_SUB="${CURRENT[1]}"
-OAUTH_SECRET_SOURCE="${CURRENT[2]}"
-CRYAPP_DEV_PATH="${CURRENT[3]}"
-CRYAPP_CODE_PATH="${CURRENT[4]}"
-LEGACY_MEMORY_DB_PATH="${CURRENT[5]}"
-[[ -n "$OAUTH_CLIENT_ID" && -n "$OAUTH_ALLOWED_SUB" && -f "$OAUTH_SECRET_SOURCE" ]] || fail "V4 no tiene OAuth o secreto montado como se esperaba."
-[[ -d "$CRYAPP_DEV_PATH" && -d "$CRYAPP_CODE_PATH" && -f "$LEGACY_MEMORY_DB_PATH" ]] || fail "No están disponibles todas las rutas de proyecto/memoria montadas por V4."
+mapfile -t PROJECT_MOUNTS < <(docker inspect "$PROJECT_CONTAINER" | python3 -c '
+import json,sys
+x=json.load(sys.stdin)[0]
+m={i.get("Destination"):i.get("Source") for i in x.get("Mounts",[])}
+for value in (m.get("/cryapp_dev",""),m.get("/cryapp",""),m.get("/data/memoria.sqlite","")):
+ print(value)
+')
+[[ "${#OAUTH_CONFIG[@]}" -eq 3 && "${#PROJECT_MOUNTS[@]}" -eq 3 ]] || fail "No pude leer la configuración de ambos contenedores."
+OAUTH_CLIENT_ID="${OAUTH_CONFIG[0]}"
+OAUTH_ALLOWED_SUB="${OAUTH_CONFIG[1]}"
+OAUTH_SECRET_SOURCE="${OAUTH_CONFIG[2]}"
+CRYAPP_DEV_PATH="${PROJECT_MOUNTS[0]}"
+CRYAPP_CODE_PATH="${PROJECT_MOUNTS[1]}"
+LEGACY_MEMORY_DB_PATH="${PROJECT_MOUNTS[2]}"
+[[ -n "$OAUTH_CLIENT_ID" && -n "$OAUTH_ALLOWED_SUB" && -f "$OAUTH_SECRET_SOURCE" ]] || fail "El contenedor OAuth DEV no tiene el secreto montado como se esperaba."
+[[ -d "$CRYAPP_DEV_PATH" && -d "$CRYAPP_CODE_PATH" && -f "$LEGACY_MEMORY_DB_PATH" ]] || fail "Faltan rutas de CryApp o memoria en los mounts de '$PROJECT_CONTAINER'; no se modificó nada."
 
 printf '\nV5 se instalará como contenedor adicional. V4 seguirá intacta.\n'
 printf 'La memoria V5 tendrá su propio volumen persistente.\n\n'
