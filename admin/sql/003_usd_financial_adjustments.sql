@@ -10,8 +10,8 @@ ALTER TABLE cryapp_payment_requests
   ADD COLUMN IF NOT EXISTS currency varchar(3) NOT NULL DEFAULT 'DOP',
   ADD COLUMN IF NOT EXISTS amount_usd numeric(12,2);
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='cryapp_payments_currency_check') THEN ALTER TABLE cryapp_payment_requests ADD CONSTRAINT cryapp_payments_currency_check CHECK (currency IN ('DOP','USD')); END IF; IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='cryapp_payments_usd_nonnegative') THEN ALTER TABLE cryapp_payment_requests ADD CONSTRAINT cryapp_payments_usd_nonnegative CHECK (amount_usd IS NULL OR amount_usd >= 0); END IF; END $$;
--- Precios nuevos acordados: USD 50 PRO y USD 100 PREMIUM; no alterar precios DOP históricos.
-UPDATE cryapp_subscription_plans SET price_usd = CASE id WHEN 'pro' THEN 50.00 WHEN 'premium' THEN 100.00 END WHERE id IN ('pro','premium');
+-- Precios solicitados: USD 30 PRO y USD 50 PREMIUM; no alterar precios DOP históricos.
+UPDATE cryapp_subscription_plans SET price_usd = CASE id WHEN 'pro' THEN 30.00 WHEN 'premium' THEN 50.00 END WHERE id IN ('pro','premium');
 CREATE TABLE IF NOT EXISTS cryapp_financial_adjustments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   payment_id uuid NOT NULL REFERENCES cryapp_payment_requests(id) ON DELETE RESTRICT,
