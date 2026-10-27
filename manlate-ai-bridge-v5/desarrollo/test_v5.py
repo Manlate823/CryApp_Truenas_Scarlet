@@ -11,6 +11,7 @@ from unittest.mock import patch
 import memoria_v5
 import server_v5
 import shell_truenas
+import github_v5
 
 class BridgeTests(unittest.TestCase):
     def test_memory_persists_and_is_project_scoped(self):
@@ -64,7 +65,7 @@ class BridgeTests(unittest.TestCase):
             req = urllib.request.Request(url, data=body, headers={'Authorization':'Bearer test'}, method='POST')
             with urllib.request.urlopen(req) as response: data = json.load(response)
             names = {x['name'] for x in data['result']['tools']}
-            self.assertTrue({'editar_archivo_cryapp','guardar_memoria','consultar_memoria','ejecutar_shell_truenas'} <= names)
+            self.assertTrue({'editar_archivo_cryapp','guardar_memoria','consultar_memoria','ejecutar_shell_truenas','github_listar_archivos','github_leer_archivo','github_editar_archivo'} <= names)
         finally:
             server.shutdown()
             server.server_close()
@@ -89,5 +90,26 @@ class BridgeTests(unittest.TestCase):
             with patch.dict(os.environ, env, clear=True), patch('shell_truenas.subprocess.run', side_effect=fake_run):
                 self.assertEqual(shell_truenas.ejecutar('printf hello')['salida'], 'hello')
                 with self.assertRaises(ValueError): shell_truenas.ejecutar('x', 1000)
+
+    def test_github_repo_path_allowlist_and_sha_precondition(self):
+        with tempfile.TemporaryDirectory() as d:
+            token_file = os.path.join(d, 'token')
+            with open(token_file, 'w') as f: f.write('not-printed')
+            env = {'GITHUB_TOKEN_FILE': token_file,
+                   'GITHUB_ALLOWED_REPOSITORIES': 'Manlate823/CryApp_Truenas_Scarlet',
+                   'GITHUB_ALLOWED_BRANCHES': 'desarrollo/manlate-ai-bridge-v5'}
+            with patch.dict(os.environ, env, clear=True):
+                with patch('github_v5._request', return_value=[
+                    {'name':'README.md','type':'file','path':'README.md','sha':'a'*40,'size':20},
+                    {'name':'.env','type':'file','path':'.env','sha':'b'*40,'size':10},
+                ]):
+                    result = github_v5.listar_archivos('Manlate823/CryApp_Truenas_Scarlet', '', 'desarrollo/manlate-ai-bridge-v5')
+                    self.assertEqual([x['nombre'] for x in result['archivos']], ['README.md'])
+                with self.assertRaises(ValueError):
+                    github_v5.leer_archivo('otro/repo', 'README.md', 'desarrollo/manlate-ai-bridge-v5')
+                with self.assertRaises(ValueError):
+                    github_v5.leer_archivo('Manlate823/CryApp_Truenas_Scarlet', 'secrets/client.txt', 'desarrollo/manlate-ai-bridge-v5')
+                with self.assertRaises(ValueError):
+                    github_v5.editar_archivo('Manlate823/CryApp_Truenas_Scarlet', 'README.md', 'desarrollo/manlate-ai-bridge-v5', 'x', 'bad-sha', 'test')
 
 if __name__ == '__main__': unittest.main()
