@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Instalador interactivo para TrueNAS SCALE. Instala V5 en paralelo; nunca elimina V4.
-INSTALLER_REVISION="2026-10-27-r2"
+INSTALLER_REVISION="2026-10-27-r3"
 printf 'Instalador Manlate AI Bridge V5 %s\n' "$INSTALLER_REVISION"
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 OAUTH_CONTAINER="manlate-ai-bridge-oauth-dev"
@@ -22,7 +22,6 @@ need docker
 need python3
 need ssh-keygen
 need getent
-need visudo
 
 docker compose version >/dev/null 2>&1 || fail "Docker Compose no está disponible."
 docker inspect "$OAUTH_CONTAINER" >/dev/null 2>&1 || fail "No encuentro el contenedor OAuth '$OAUTH_CONTAINER'; no modifiqué nada."
@@ -88,7 +87,6 @@ account="$(getent passwd "$BRIDGE_SSH_USER" || true)"
 user_home="$(cut -d: -f6 <<<"$account")"
 user_group="$(id -gn "$BRIDGE_SSH_USER")"
 [[ -n "$user_home" && -d "$user_home" ]] || fail "No pude localizar el directorio del usuario SSH."
-grep -Eq '^[[:space:]]*(@|#)includedir[[:space:]]+/etc/sudoers.d([[:space:]]|$)' /etc/sudoers || fail "sudoers no incluye /etc/sudoers.d; no cambié permisos."
 host_key="/etc/ssh/ssh_host_ed25519_key.pub"
 [[ -r "$host_key" ]] || fail "No encuentro la clave pública SSH local para verificar el host."
 
@@ -104,30 +102,12 @@ if [[ ! -f "$BRIDGE_SSH_KEY_PATH" ]]; then
   ssh-keygen -q -t ed25519 -N '' -C 'manlate-ai-bridge-v5' -f "$BRIDGE_SSH_KEY_PATH"
 fi
 pubkey="$(cat "$BRIDGE_SSH_KEY_PATH.pub")"
-ssh_dir="$user_home/.ssh"
-install -d -o "$BRIDGE_SSH_USER" -g "$user_group" -m 700 "$ssh_dir"
-authorized="$ssh_dir/authorized_keys"
-if [[ -f "$authorized" ]]; then
-  cp -a "$authorized" "$authorized.bak-$(date +%Y%m%d-%H%M%S)"
-fi
-install -o "$BRIDGE_SSH_USER" -g "$user_group" -m 600 /dev/null "$authorized.tmp"
-if [[ -f "$authorized" ]]; then cat "$authorized" > "$authorized.tmp"; fi
-if ! grep -Fxq -- "$pubkey" "$authorized.tmp"; then printf '%s\n' "$pubkey" >> "$authorized.tmp"; fi
-mv "$authorized.tmp" "$authorized"
-chown "$BRIDGE_SSH_USER:$user_group" "$authorized"
-chmod 600 "$authorized"
-
-# El propietario pidió acceso total a la shell: la cuenta SSH queda con sudo root sin contraseña.
-SUDOERS_FILE="/etc/sudoers.d/90-manlate-ai-bridge-v5"
-if [[ -f "$SUDOERS_FILE" ]]; then
-  cp -a "$SUDOERS_FILE" "$SUDOERS_FILE.bak-$(date +%Y%m%d-%H%M%S)"
-fi
-SUDOERS_TMP="$(mktemp /etc/sudoers.d/.manlate-ai-bridge-v5.XXXXXX)"
-printf '%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$BRIDGE_SSH_USER" > "$SUDOERS_TMP"
-chmod 0440 "$SUDOERS_TMP"
-visudo -cf "$SUDOERS_TMP" >/dev/null || { rm -f "$SUDOERS_TMP"; fail "La regla sudo no pasó visudo; V4 sigue intacta."; }
-mv "$SUDOERS_TMP" "$SUDOERS_FILE"
-chmod 0440 "$SUDOERS_FILE"
+printf '\n=== CONFIGURACIÓN DE ACCESO EN LA WEBUI DE TRUENAS ===\n'
+printf 'La clave pública dedicada se debe agregar desde Credentials > Users > %s > Edit.\n' "$BRIDGE_SSH_USER"
+printf 'Activa SSH Access, pega esta clave en Public SSH Key y selecciona Allow all sudo commands with no password.\n'
+printf 'Verifica también que el servicio SSH esté activo en System > Services.\n'
+printf '\nClave pública (no es secreta):\n%s\n\n' "$pubkey"
+read -r -p 'Cuando guardes esos ajustes en TrueNAS, presiona Enter para continuar (Ctrl+C cancela): ' _
 
 read -r host_type host_public_key _ < "$host_key"
 known_host="$BRIDGE_SSH_HOST"
@@ -184,7 +164,7 @@ printf '\n'
 [[ "$(docker inspect -f '{{.State.Health.Status}}' "$V5_CONTAINER" 2>/dev/null || true)" == healthy ]] || fail "V5 no quedó saludable. V4 sigue intacta."
 
 printf '\nV5 instalado y saludable. V4 no se modificó.\n'
-printf 'Permiso shell: root vía sudo sin contraseña para la cuenta SSH indicada.\n'
+printf 'Permiso shell: configurado desde la WebUI de TrueNAS para la cuenta SSH indicada.\n'
 printf 'Clave SSH pública para referencia: %s\n' "$pubkey"
 printf 'Memoria persistente: volumen Docker v5-memory\n'
 if docker exec "$V5_CONTAINER" ssh -F /dev/null -T -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/run/secrets/bridge_known_hosts -o ConnectTimeout=8 -o ForwardAgent=no -o ClearAllForwardings=yes -i /run/secrets/bridge_ssh_key -p "$BRIDGE_SSH_PORT" "$BRIDGE_SSH_USER@$BRIDGE_SSH_HOST" id >/dev/null 2>&1; then
