@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 DB = os.environ.get('BRIDGE_MEMORY_DB', '/data/v5/memoria.sqlite')
 
 def conectar():
+    os.makedirs(os.path.dirname(DB), exist_ok=True)
     con = sqlite3.connect(DB, timeout=10)
     con.execute('CREATE TABLE IF NOT EXISTS notas (id INTEGER PRIMARY KEY, proyecto TEXT NOT NULL, contenido TEXT NOT NULL, fecha TEXT NOT NULL)')
     return con
