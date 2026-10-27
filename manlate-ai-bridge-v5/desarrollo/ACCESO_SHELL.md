@@ -1,34 +1,25 @@
 # Acceso a la shell de TrueNAS — desarrollo V5
 
-Estado: implementación experimental. No instalar ni exponer V5 hasta verificar OAuth, los permisos del usuario, la configuración de red y una prueba de conexión real.
+Estado: experimental. V5 puede ejecutar comandos en TrueNAS mediante SSH usando una clave dedicada, pero no se ha validado una conexión real desde este contenedor. No instalar ni exponer V5 hasta completar la configuración OAuth, red, clave y pruebas de respaldo.
 
-V5 ejecuta comandos en el servidor TrueNAS mediante SSH. Los comandos se ejecutan con los permisos del usuario SSH configurado; un contenedor no tiene automáticamente acceso al host. El puente puede modificar o eliminar datos accesibles por ese usuario. Una cuenta con sudo sin contraseña amplía su alcance de forma equivalente.
+Los comandos se ejecutan con los permisos de `BRIDGE_SSH_USER`. Una cuenta con sudo sin contraseña amplía el alcance. El usuario debe autorizar la ejecución de cada tarea mediante su solicitud al asistente; no se aceptan contraseñas interactivas ni se abre una terminal TTY.
 
 ## Requisitos
 
-1. El servicio SSH de TrueNAS debe estar habilitado y accesible desde el contenedor.
-2. Una cuenta del host con acceso SSH mediante una clave dedicada. El usuario se configura en BRIDGE_SSH_USER. No incluir contraseñas ni claves privadas en GitHub.
-3. Una clave privada dedicada montada en el contenedor como archivo de solo lectura accesible por su usuario, normalmente /run/secrets/bridge_ssh_key. La clave pública correspondiente debe estar autorizada en la cuenta de TrueNAS. No se acepta una frase de contraseña interactiva porque SSH funciona en modo BatchMode.
-4. Un archivo known_hosts montado como /run/secrets/bridge_known_hosts y obtenido tras verificar la identidad y huella del servidor por un canal de confianza. El puente exige StrictHostKeyChecking=yes y rechaza claves desconocidas o cambiadas.
-5. El cliente OpenSSH instalado en la imagen del contenedor y un directorio temporal escribible.
+1. Habilitar SSH en TrueNAS y permitir conexión desde el contenedor.
+2. Usar una cuenta dedicada del host y una clave privada dedicada. No guardar claves ni contraseñas en GitHub.
+3. Montar la clave como archivo de solo lectura (predeterminado `/run/secrets/bridge_ssh_key`) y autorizar su clave pública en TrueNAS.
+4. Montar un `known_hosts` creado después de verificar la huella del servidor por un canal confiable (predeterminado `/run/secrets/bridge_known_hosts`). SSH exige `StrictHostKeyChecking=yes`.
+5. Habilitar `BRIDGE_SHELL_ENABLED=true` solo después de configurar host, usuario, puerto y archivos SSH.
 
-## Variables necesarias
+## Configuración de OAuth V5
 
-- BRIDGE_SHELL_ENABLED=true habilita la herramienta; sin esta variable se rechaza.
-- BRIDGE_SSH_HOST: dirección accesible desde el contenedor.
-- BRIDGE_SSH_USER: cuenta SSH existente en el host.
-- BRIDGE_SSH_PORT: puerto SSH; predeterminado 22.
-- BRIDGE_SSH_KEY: ruta de la clave privada en el contenedor; predeterminada /run/secrets/bridge_ssh_key.
-- BRIDGE_SSH_KNOWN_HOSTS: ruta del archivo de servidores verificados; predeterminada /run/secrets/bridge_known_hosts.
+Configurar `BRIDGE_PUBLIC_URL` con la URL HTTPS pública que se registrará para V5 y `OAUTH_AUTHORIZATION_SERVER_URL` con el emisor OAuth de Authentik. El servidor publica `manlate.mcp` como ámbito requerido. El cliente OAuth y Authentik deben tener configurados el mismo ámbito, redirect URI, client ID y secreto. Los secretos se montan desde archivos y no se guardan en el repositorio.
 
-Las rutas y credenciales son particulares de la instalación y no se generan ni registran automáticamente aquí. No publicar claves ni datos sensibles en mensajes o registros.
+## Límites
 
-## Funcionamiento y límites
+La herramienta `ejecutar_shell_truenas` acepta comandos de hasta 8 KiB y timeout de 1 a 120 segundos. Devuelve hasta 64 KiB de salida, almacenada temporalmente mientras corre SSH. Un timeout no garantiza que el proceso remoto se haya detenido; comprobar su estado antes de repetirlo. La salida de un comando puede contener información sensible.
 
-La herramienta ejecutar_shell_truenas recibe comando y tiempo entre 1 y 120 segundos. SSH no abre una terminal interactiva ni puede recibir contraseñas o confirmaciones interactivas. Sudo que requiere contraseña no funcionará. Una interrupción por tiempo no garantiza que un proceso remoto termine; debe comprobarse su estado antes de repetir la tarea. Se devuelven como máximo 64 KiB de salida, que puede contener información sensible. La salida se almacena temporalmente en disco mientras dura la operación.
+## Verificación pendiente
 
-El servidor de desarrollo conserva la configuración OAuth de V4 y aún no tiene configuración automática de V5, limitación de salida en disco, auditoría completa, integración GitHub ni un instalador verificado. La validación local usa simulaciones; falta probar una conexión real desde el contenedor a TrueNAS y desde ChatGPT. No abrir el puente a Internet hasta completar y comprobar esa integración.
-
-## Verificación antes de uso
-
-Tras instalar y autenticar el puente, probar primero un comando de lectura como `id` y confirmar que responde el usuario esperado. Después comprobar que memoria, rutas de proyectos, copias de seguridad y recuperación funcionan por separado. Usar solo los permisos de sistema necesarios para las tareas solicitadas.
+Las pruebas actuales simulan SSH y HTTP localmente. Antes de producción hace falta comprobar desde TrueNAS: que ChatGPT completa OAuth V5, que `id` responde con el usuario SSH previsto, que memoria sobrevive al reinicio, que CryApp genera respaldo recuperable y que un fallo de la conexión no repite comandos automáticamente.
