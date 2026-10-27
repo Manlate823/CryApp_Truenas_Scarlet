@@ -2,6 +2,8 @@
 set -Eeuo pipefail
 
 # Instalador interactivo para TrueNAS SCALE. Instala V5 en paralelo; nunca elimina V4.
+INSTALLER_REVISION="2026-10-27-r2"
+printf 'Instalador Manlate AI Bridge V5 %s\n' "$INSTALLER_REVISION"
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 OAUTH_CONTAINER="manlate-ai-bridge-oauth-dev"
 PROJECT_CONTAINER="manlate-ai-bridge-cryapp-v4"
@@ -55,7 +57,9 @@ CRYAPP_DEV_PATH="${PROJECT_MOUNTS[0]}"
 CRYAPP_CODE_PATH="${PROJECT_MOUNTS[1]}"
 LEGACY_MEMORY_DB_PATH="${PROJECT_MOUNTS[2]}"
 [[ -n "$OAUTH_CLIENT_ID" && -n "$OAUTH_ALLOWED_SUB" && -f "$OAUTH_SECRET_SOURCE" ]] || fail "El contenedor OAuth DEV no tiene el secreto montado como se esperaba."
-[[ -d "$CRYAPP_DEV_PATH" && -d "$CRYAPP_CODE_PATH" && -f "$LEGACY_MEMORY_DB_PATH" ]] || fail "Faltan rutas de CryApp o memoria en los mounts de '$PROJECT_CONTAINER'; no se modificó nada."
+[[ -d "$CRYAPP_DEV_PATH" ]] || fail "No existe la carpeta CryApp DEV detectada desde '$PROJECT_CONTAINER'; no se modificó nada."
+[[ -d "$CRYAPP_CODE_PATH" ]] || fail "No existe la carpeta de código CryApp detectada desde '$PROJECT_CONTAINER'; no se modificó nada."
+[[ -f "$LEGACY_MEMORY_DB_PATH" ]] || fail "No existe la base de memoria detectada desde '$PROJECT_CONTAINER'; no se modificó nada."
 
 printf '\nV5 se instalará como contenedor adicional. V4 seguirá intacta.\n'
 printf 'La memoria V5 tendrá su propio volumen persistente.\n\n'
