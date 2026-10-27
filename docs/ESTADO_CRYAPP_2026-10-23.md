@@ -49,7 +49,7 @@ Se proporcionó al usuario un comando que:
 **No se recibió confirmación de ejecución ni de visualización correcta**. Si se retoma, comprobar estado real antes de modificar.
 
 ## Cambios de precios USD pendientes
-Precios solicitados: GRATIS US$0, PRO US$50, PREMIUM US$100, tanto CryApp oficial como Admin PRO oficial.
+Precios solicitados: GRATIS US$0, PRO US$30, PREMIUM US$50, tanto CryApp oficial como Admin PRO oficial.
 - La rama `preparacion/usd-admin-pro` contiene cambios de Admin y migración `admin/sql/003_usd_financial_adjustments.sql` para `price_usd`, `currency`, `amount_usd`.
 - La rama `preparacion/usd-cryapp-web` contiene ajustes de visualización web y `backend/subscriptions.js` USD.
 - Conservar historial de pagos DOP. **No aplicar migración sin copia de seguridad y validación de esquema; no publicar backend USD antes de migrar DB.**
