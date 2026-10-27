@@ -1,0 +1,7 @@
+.env
+secrets/*
+!secrets/README.md
+*.sqlite
+*.sqlite-*
+*.bak
+*.backup
