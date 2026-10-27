@@ -16,5 +16,5 @@ DO $$ BEGIN
   ALTER TABLE cryapp_payment_requests ADD CONSTRAINT cryapp_payment_usd_valid CHECK (amount_usd IS NULL OR amount_usd >= 0);
  END IF;
 END $$;
-UPDATE cryapp_subscription_plans SET price_usd=CASE id WHEN 'pro' THEN 50.00 WHEN 'premium' THEN 100.00 END WHERE id IN ('pro','premium');
+UPDATE cryapp_subscription_plans SET price_usd=CASE id WHEN 'pro' THEN 30.00 WHEN 'premium' THEN 50.00 END WHERE id IN ('pro','premium');
 COMMIT;
