@@ -2,6 +2,7 @@
 import os
 import json
 import hashlib
+import stat
 import tempfile
 from pathlib import Path
 from datetime import datetime, timezone
@@ -81,6 +82,44 @@ def _leer_seguro(ruta):
         os.close(fd)
 
 
+def _registrar_edicion(registro):
+    log = REGISTROS / "ediciones.jsonl"
+    with log.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(registro) + "\n")
+
+
+def _restaurar_respaldo(destino, respaldo, hash_esperado, modo):
+    anteriores = _leer_seguro(respaldo)
+    if _hash(anteriores) != hash_esperado:
+        raise ValueError("El respaldo no coincide con el archivo original")
+
+    temporal = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=destino.parent,
+            prefix=".cryapp_restore_",
+            delete=False
+        ) as f:
+            temporal = Path(f.name)
+            f.write(anteriores)
+            f.flush()
+            os.fsync(f.fileno())
+
+        os.chmod(temporal, modo)
+        os.replace(temporal, destino)
+        temporal = None
+
+        directorio_fd = os.open(destino.parent, os.O_RDONLY)
+        try:
+            os.fsync(directorio_fd)
+        finally:
+            os.close(directorio_fd)
+    finally:
+        if temporal is not None:
+            temporal.unlink(missing_ok=True)
+
+
 def editar_archivo_cryapp(ruta, contenido, sha256_esperado):
     if not isinstance(contenido, str):
         raise ValueError("Contenido invalido")
@@ -92,6 +131,7 @@ def editar_archivo_cryapp(ruta, contenido, sha256_esperado):
 
     destino = _resolver(ruta)
     anteriores = _leer_seguro(destino)
+    modo_anterior = stat.S_IMODE(destino.stat().st_mode)
 
     actual_hash = _hash(anteriores)
 
@@ -136,6 +176,7 @@ def editar_archivo_cryapp(ruta, contenido, sha256_esperado):
         raise
 
     temporal = None
+    reemplazo_intentado = False
 
     try:
         with tempfile.NamedTemporaryFile(
@@ -154,6 +195,7 @@ def editar_archivo_cryapp(ruta, contenido, sha256_esperado):
         if _hash(_leer_seguro(destino)) != actual_hash:
             raise ValueError("El archivo cambio durante la edicion")
 
+        reemplazo_intentado = True
         os.replace(temporal, destino)
         temporal = None
 
@@ -165,16 +207,31 @@ def editar_archivo_cryapp(ruta, contenido, sha256_esperado):
             "sha256_nuevo": _hash(nuevos)
         }
 
-        log = REGISTROS / "ediciones.jsonl"
-
-        with log.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(registro) + "\n")
+        _registrar_edicion(registro)
 
         return {
             "estado": "modificado",
             **registro
         }
 
+    except Exception as error:
+        # If saving or verifying the edit fails after replacement, restore the
+        # verified backup before reporting failure to the caller.
+        if reemplazo_intentado:
+            try:
+                if _hash(_leer_seguro(destino)) != actual_hash:
+                    _restaurar_respaldo(
+                        destino, respaldo, actual_hash, modo_anterior
+                    )
+            except Exception as restauracion_error:
+                raise RuntimeError(
+                    "Falló la edición y la restauración automática; "
+                    "el respaldo sigue disponible: " + respaldo.name
+                ) from restauracion_error
+            raise RuntimeError(
+                "Falló la edición; el archivo original se restauró automáticamente."
+            ) from error
+        raise
     finally:
         if temporal is not None:
             temporal.unlink(missing_ok=True)
