@@ -188,7 +188,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header(
             "WWW-Authenticate",
-            'Bearer resource_metadata="https://manlate-ai-bridge-v4.jellyfinplux.uk/.well-known/oauth-protected-resource/mcp"'
+            'Bearer resource_metadata="' + self.url_metadatos_recurso() + '"'
         )
         self.end_headers()
         self.wfile.write(
@@ -451,13 +451,23 @@ class Handler(BaseHTTPRequestHandler):
 
 
     def responder_metadatos_oauth(self):
+        base = os.environ.get("BRIDGE_PUBLIC_URL", "").rstrip("/")
+        auth_server = os.environ.get("OAUTH_AUTHORIZATION_SERVER_URL", "").rstrip("/")
+        if not base or not auth_server:
+            self.responder({"error": "Metadatos OAuth no configurados"}, 503)
+            return
         self.responder({
-            "resource": "https://manlate-ai-bridge-v4.jellyfinplux.uk/mcp",
-            "authorization_servers": [
-                "https://authentik.jellyfinplux.uk/application/o/manlate-ai-bridge/"
-            ],
+            "resource": base + "/mcp",
+            "authorization_servers": [auth_server],
+            "scopes_supported": ["manlate.mcp"],
             "bearer_methods_supported": ["header"]
         })
+
+    def url_metadatos_recurso(self):
+        base = os.environ.get("BRIDGE_PUBLIC_URL", "").rstrip("/")
+        if not base:
+            return ""
+        return base + "/.well-known/oauth-protected-resource/mcp"
 
     def do_GET(self):
         if self.path in (
