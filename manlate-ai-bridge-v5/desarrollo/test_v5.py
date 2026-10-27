@@ -6,9 +6,11 @@ import threading
 import unittest
 import urllib.request
 from http.server import ThreadingHTTPServer
+from unittest.mock import patch
 
 import memoria_v5
 import server_v5
+import shell_truenas
 
 class BridgeTests(unittest.TestCase):
     def test_memory_persists_and_is_project_scoped(self):
@@ -42,10 +44,30 @@ class BridgeTests(unittest.TestCase):
             req = urllib.request.Request(url, data=body, headers={'Authorization':'Bearer test'}, method='POST')
             with urllib.request.urlopen(req) as response: data = json.load(response)
             names = {x['name'] for x in data['result']['tools']}
-            self.assertTrue({'editar_archivo_cryapp','guardar_memoria','consultar_memoria'} <= names)
+            self.assertTrue({'editar_archivo_cryapp','guardar_memoria','consultar_memoria','ejecutar_shell_truenas'} <= names)
         finally:
             server.shutdown()
             server.server_close()
             thread.join()
+
+    def test_shell_disabled_and_ssh_options(self):
+        with patch.dict(os.environ, {'BRIDGE_SHELL_ENABLED': 'false'}, clear=True):
+            with self.assertRaises(ValueError): shell_truenas.ejecutar('id')
+        with tempfile.TemporaryDirectory() as d:
+            key = os.path.join(d, 'key')
+            known = os.path.join(d, 'known')
+            for path in (key, known):
+                with open(path, 'w') as f: f.write('test')
+            env = {'BRIDGE_SHELL_ENABLED':'true', 'BRIDGE_SSH_HOST':'10.0.0.19',
+                   'BRIDGE_SSH_USER':'truenas_admin', 'BRIDGE_SSH_KEY':key, 'BRIDGE_SSH_KNOWN_HOSTS':known}
+            def fake_run(argv, **kwargs):
+                self.assertIn('StrictHostKeyChecking=yes', argv)
+                self.assertIn('BatchMode=yes', argv)
+                self.assertEqual(argv[-1], 'printf hello')
+                kwargs['stdout'].write(b'hello')
+                return type('Result', (), {'returncode':0})()
+            with patch.dict(os.environ, env, clear=True), patch('shell_truenas.subprocess.run', side_effect=fake_run):
+                self.assertEqual(shell_truenas.ejecutar('printf hello')['salida'], 'hello')
+                with self.assertRaises(ValueError): shell_truenas.ejecutar('x', 1000)
 
 if __name__ == '__main__': unittest.main()
