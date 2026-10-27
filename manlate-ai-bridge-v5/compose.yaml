@@ -1,0 +1,70 @@
+services:
+  manlate-ai-bridge-v5:
+    container_name: manlate-ai-bridge-v5
+    build:
+      context: ./desarrollo
+      dockerfile: Dockerfile.ssh
+    restart: unless-stopped
+    init: true
+    read_only: true
+    user: "568:568"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    mem_limit: 512m
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    ports:
+      - "127.0.0.1:18101:8080"
+    environment:
+      OAUTH_ENABLED: "true"
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:?Configure el ID OAuth}
+      OAUTH_ALLOWED_SUB: ${OAUTH_ALLOWED_SUB:?Configure el usuario OAuth autorizado}
+      BRIDGE_PUBLIC_URL: ${BRIDGE_PUBLIC_URL:?Configure el dominio HTTPS de V5}
+      OAUTH_AUTHORIZATION_SERVER_URL: ${OAUTH_AUTHORIZATION_SERVER_URL:?Configure el emisor OAuth}
+      BRIDGE_MEMORY_DB: /data/v5/memoria.sqlite
+      GITHUB_ALLOWED_REPOSITORIES: ${GITHUB_ALLOWED_REPOSITORIES:?Configure repositorios GitHub autorizados}
+      GITHUB_ALLOWED_BRANCHES: ${GITHUB_ALLOWED_BRANCHES:?Configure ramas GitHub autorizadas}
+      GITHUB_TOKEN_FILE: /run/secrets/github_token
+      BRIDGE_SHELL_ENABLED: ${BRIDGE_SHELL_ENABLED:-false}
+      BRIDGE_SSH_HOST: ${BRIDGE_SSH_HOST:-}
+      BRIDGE_SSH_USER: ${BRIDGE_SSH_USER:-}
+      BRIDGE_SSH_PORT: ${BRIDGE_SSH_PORT:-22}
+      BRIDGE_SSH_KEY: /run/secrets/bridge_ssh_key
+      BRIDGE_SSH_KNOWN_HOSTS: /run/secrets/bridge_known_hosts
+    volumes:
+      - ${CRYAPP_DEV_PATH:?Configure la ruta de CryApp DEV}:/cryapp_dev:rw
+      - ${CRYAPP_CODE_PATH:?Configure la ruta del código CryApp}:/cryapp:ro
+      - ${LEGACY_MEMORY_DB_PATH:?Configure la base de datos actual}:/data/memoria.sqlite:ro
+      - v5-memory:/data/v5
+    secrets:
+      - oauth_client_secret
+      - github_token
+      - bridge_ssh_key
+      - bridge_known_hosts
+    networks:
+      - cloudflared
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  v5-memory:
+
+secrets:
+  oauth_client_secret:
+    file: ${OAUTH_CLIENT_SECRET_PATH:?Configure la ruta del secreto OAuth}
+  github_token:
+    file: ${GITHUB_TOKEN_PATH:?Configure la ruta del token GitHub}
+  bridge_ssh_key:
+    file: ${BRIDGE_SSH_KEY_PATH:?Configure la ruta de la clave SSH}
+  bridge_known_hosts:
+    file: ${BRIDGE_KNOWN_HOSTS_PATH:?Configure known_hosts verificado}
+
+networks:
+  cloudflared:
+    external: true
+    name: ${CLOUDFLARED_NETWORK:-ix-cloudflared_default}
