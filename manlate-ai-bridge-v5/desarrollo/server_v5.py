@@ -306,7 +306,10 @@ class Handler(BaseHTTPRequestHandler):
                     ,{"name":"editar_archivo_cryapp","description":"Edita un archivo autorizado de CryApp con copia de respaldo y verificación SHA-256.","inputSchema":{"type":"object","properties":{"ruta":{"type":"string"},"contenido":{"type":"string"},"sha256_esperado":{"type":"string"}},"required":["ruta","contenido","sha256_esperado"],"additionalProperties":False}},
                     {"name":"guardar_memoria","description":"Guarda una nota de continuidad por proyecto; no guardar contraseñas ni secretos.","inputSchema":{"type":"object","properties":{"proyecto":{"type":"string"},"contenido":{"type":"string"}},"required":["proyecto","contenido"],"additionalProperties":False}},
                     {"name":"consultar_memoria","description":"Consulta notas de continuidad guardadas para un proyecto.","inputSchema":{"type":"object","properties":{"proyecto":{"type":"string"},"limite":{"type":"integer","minimum":1,"maximum":50}},"required":["proyecto"],"additionalProperties":False}},
-                    {"name":"ejecutar_shell_truenas","description":"Ejecuta en la shell del usuario SSH de TrueNAS cuando el propietario lo solicite. Puede modificar el sistema.","annotations":{"readOnlyHint":False,"destructiveHint":True,"openWorldHint":True},"inputSchema":{"type":"object","properties":{"comando":{"type":"string"},"tiempo":{"type":"integer","minimum":1,"maximum":120}},"required":["comando"],"additionalProperties":False}}
+                    {"name":"ejecutar_shell_truenas","description":"Ejecuta en la shell del usuario SSH de TrueNAS cuando el propietario lo solicite. Puede modificar el sistema.","annotations":{"readOnlyHint":False,"destructiveHint":True,"openWorldHint":True},"inputSchema":{"type":"object","properties":{"comando":{"type":"string"},"tiempo":{"type":"integer","minimum":1,"maximum":120}},"required":["comando"],"additionalProperties":False}},
+                    {"name":"github_listar_archivos","description":"Lista archivos de un repositorio y rama permitidos en GitHub.","inputSchema":{"type":"object","properties":{"repositorio":{"type":"string"},"ruta":{"type":"string"},"rama":{"type":"string"}},"required":["repositorio"],"additionalProperties":False}},
+                    {"name":"github_leer_archivo","description":"Lee un archivo de texto permitido desde GitHub.","inputSchema":{"type":"object","properties":{"repositorio":{"type":"string"},"ruta":{"type":"string"},"rama":{"type":"string"}},"required":["repositorio","ruta"],"additionalProperties":False}},
+                    {"name":"github_editar_archivo","description":"Actualiza un archivo permitido en GitHub con SHA esperado y crea un commit en la rama indicada.","annotations":{"readOnlyHint":False,"destructiveHint":True,"openWorldHint":False},"inputSchema":{"type":"object","properties":{"repositorio":{"type":"string"},"ruta":{"type":"string"},"rama":{"type":"string"},"contenido":{"type":"string"},"sha_esperado":{"type":"string"},"mensaje":{"type":"string"}},"required":["repositorio","ruta","rama","contenido","sha_esperado","mensaje"],"additionalProperties":False}}
                 ]
                 }
 
@@ -393,6 +396,15 @@ class Handler(BaseHTTPRequestHandler):
                 elif herramienta == "ejecutar_shell_truenas":
                     from shell_truenas import ejecutar
                     datos = ejecutar(argumentos.get("comando"), argumentos.get("tiempo", 60))
+                elif herramienta == "github_listar_archivos":
+                    from github_v5 import listar_archivos
+                    datos = listar_archivos(argumentos.get("repositorio"), argumentos.get("ruta", ""), argumentos.get("rama", "main"))
+                elif herramienta == "github_leer_archivo":
+                    from github_v5 import leer_archivo
+                    datos = leer_archivo(argumentos.get("repositorio"), argumentos.get("ruta"), argumentos.get("rama", "main"))
+                elif herramienta == "github_editar_archivo":
+                    from github_v5 import editar_archivo
+                    datos = editar_archivo(argumentos.get("repositorio"), argumentos.get("ruta"), argumentos.get("rama"), argumentos.get("contenido"), argumentos.get("sha_esperado"), argumentos.get("mensaje"))
                 elif herramienta == "estado_memoria":
                     datos = {
                         "servicio": "Manlate AI Bridge",
