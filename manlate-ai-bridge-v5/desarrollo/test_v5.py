@@ -16,17 +16,37 @@ class BridgeTests(unittest.TestCase):
     def test_memory_persists_and_is_project_scoped(self):
         with tempfile.TemporaryDirectory() as directory:
             old = memoria_v5.DB
-            memoria_v5.DB = os.path.join(directory, 'memory.sqlite')
+            memoria_v5.DB = os.path.join(directory, 'nested', 'memory.sqlite')
             try:
                 memoria_v5.guardar('CryApp', 'Diseño pendiente')
                 memoria_v5.guardar('Otro', 'No mezclar')
                 importlib.reload(memoria_v5)
-                memoria_v5.DB = os.path.join(directory, 'memory.sqlite')
+                memoria_v5.DB = os.path.join(directory, 'nested', 'memory.sqlite')
                 self.assertEqual(memoria_v5.consultar('CryApp')['notas'][0]['contenido'], 'Diseño pendiente')
                 self.assertEqual(len(memoria_v5.consultar('CryApp')['notas']), 1)
                 with self.assertRaises(ValueError): memoria_v5.guardar('', 'x')
             finally:
                 memoria_v5.DB = old
+
+    def test_oauth_metadata_uses_v5_config_and_advertises_scope(self):
+        class MockHandler(server_v5.Handler):
+            def log_message(self, *args): pass
+        server = ThreadingHTTPServer(('127.0.0.1', 0), MockHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        env = {'BRIDGE_PUBLIC_URL': 'https://bridge.example',
+               'OAUTH_AUTHORIZATION_SERVER_URL': 'https://auth.example/application/o/bridge/'}
+        try:
+            with patch.dict(os.environ, env, clear=False):
+                with urllib.request.urlopen('http://127.0.0.1:%d/.well-known/oauth-protected-resource/mcp' % server.server_port) as response:
+                    data = json.load(response)
+            self.assertEqual(data['resource'], 'https://bridge.example/mcp')
+            self.assertEqual(data['scopes_supported'], ['manlate.mcp'])
+            self.assertEqual(data['authorization_servers'], [env['OAUTH_AUTHORIZATION_SERVER_URL'].rstrip('/')])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join()
 
     def test_tools_discovery_and_unauthorized_request(self):
         class MockHandler(server_v5.Handler):
