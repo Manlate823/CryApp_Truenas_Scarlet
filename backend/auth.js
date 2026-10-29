@@ -237,7 +237,7 @@ function createAuth(pool) {
           pool.query("SELECT to_regclass('public.cryapp_module_records') AS name")
         ]);
         let modules=[];
-        if(exists.rows[0].name)modules=(await pool.query("SELECT id,owner_id,module,payload,created_at FROM cryapp_module_records WHERE owner_id=$1 OR (module='messages' AND payload->>'recipientId'=$1) ORDER BY created_at",[d.sub])).rows;
+        if(exists.rows[0].name)modules=(await pool.query("SELECT id,owner_id,module,payload,created_at FROM cryapp_module_records WHERE owner_id=$1 OR (module='messages' AND payload->>'recipientId'=$1::text) ORDER BY created_at",[d.sub])).rows;
         const fs=require('node:fs/promises'),path=require('node:path'),root=process.env.CRYAPP_UPLOAD_DIR||'/data/cryapp-uploads';
         const embedPhoto=async value=>{
           if(typeof value!=='string')return value;
@@ -290,7 +290,7 @@ function createAuth(pool) {
         for(const row of media.rows)for(const match of String(row.url||'').matchAll(/([0-9a-f]{8}-[0-9a-f-]{27}\.(?:jpg|png|webp))/ig))names.add(match[1]);
         photos=[...names].filter(x=>/^[0-9a-f-]{36}\.(jpg|png|webp)$/i.test(x));
         if(tables.rows[0].presence)await c.query('DELETE FROM cryapp_presence WHERE user_id=$1',[d.sub]);
-        if(tables.rows[0].modules)await c.query("DELETE FROM cryapp_module_records WHERE owner_id=$1 OR (module='messages' AND payload->>'recipientId'=$1)",[d.sub]);
+        if(tables.rows[0].modules)await c.query("DELETE FROM cryapp_module_records WHERE owner_id=$1 OR (module='messages' AND payload->>'recipientId'=$1::text)",[d.sub]);
         await c.query('DELETE FROM cryapp_password_reset_codes WHERE user_id=$1',[d.sub]);
         await c.query('DELETE FROM cryapp_admin_email_codes WHERE user_id=$1',[d.sub]);
         await c.query('UPDATE cryapp_user_subscriptions SET payment_id=NULL WHERE payment_id IN (SELECT id FROM cryapp_payment_requests WHERE user_id=$1)',[d.sub]);
