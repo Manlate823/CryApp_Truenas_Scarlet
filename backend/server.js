@@ -111,6 +111,21 @@ const server = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ error: 'Ruta no encontrada' }));
 });
 
-server.listen(process.env.PORT || 3000, '0.0.0.0', () => {
-  console.log('CryApp API iniciada');
-});
+async function startServer() {
+  try {
+    await pool.query(`ALTER TABLE ejemplares
+      ADD COLUMN IF NOT EXISTS color_placa TEXT,
+      ADD COLUMN IF NOT EXISTS criadero TEXT,
+      ADD COLUMN IF NOT EXISTS tipo_cresta TEXT,
+      ADD COLUMN IF NOT EXISTS color_patas TEXT`);
+    server.listen(process.env.PORT || 3000, '0.0.0.0', () => {
+      console.log('CryApp API iniciada');
+    });
+  } catch (error) {
+    console.error('No se pudo preparar el esquema de ejemplares:', error.message);
+    process.exitCode = 1;
+    server.close();
+    await pool.end().catch(() => {});
+  }
+}
+startServer();
