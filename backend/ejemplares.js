@@ -13,6 +13,10 @@ const TEXT_FIELDS = {
   sexo: 20,
   raza: 100,
   color: 100,
+  color_placa: 100,
+  criadero: 150,
+  tipo_cresta: 100,
+  color_patas: 100,
   foto: 10_000,
   estado: 30,
   observaciones: 10_000
@@ -184,7 +188,7 @@ module.exports = function createEjemplares(pool) {
         if (invalid) return reply(res, 400, { error: invalid });
         const parentError = await validateParents(pool, usuarioId, data.padre_id || null, data.madre_id || null, null);
         if (parentError) return reply(res, 400, { error: parentError });
-        const fields = ['codigo', 'nombre', 'sexo', 'raza', 'color', 'fecha_nacimiento', 'foto', 'padre_id', 'madre_id', 'estado', 'observaciones'];
+        const fields = ['codigo', 'nombre', 'sexo', 'raza', 'color', 'color_placa', 'criadero', 'tipo_cresta', 'color_patas', 'fecha_nacimiento', 'foto', 'padre_id', 'madre_id', 'estado', 'observaciones'];
         const values = fields.map(field => {
           const value = data[field];
           if (field === 'estado') return value || 'activo';
