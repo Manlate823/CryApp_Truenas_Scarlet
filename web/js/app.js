@@ -45,7 +45,7 @@ const CRY_READ_CACHE=new Set(['birds.list','dashboard','stats.summary','events.l
 const cryInflight=new Map();
 function cryCached(action,maxAge=45000){try{const x=JSON.parse(localStorage.getItem('crycache_'+action)||'null');return x&&Date.now()-x.t<maxAge?x.v:null}catch{return null}}
 // Adaptador TrueNAS: la web y la API comparten origen mediante Nginx.
-function tnBird(b){return {birdId:b.id,plate:b.codigo||'',name:b.nombre||'',sex:(b.sexo||'').toLowerCase()==='hembra'?'Gallina':'Gallo',breed:b.raza||'',plumage:b.color||'',birthDate:b.fecha_nacimiento||'',photoUrl:b.foto||'',fatherId:b.padre_id||'',motherId:b.madre_id||'',status:b.estado||'activo',notes:b.observaciones||'',createdAt:b.fecha_registro||'',updatedAt:b.fecha_registro||''}}
+function tnBird(b){return {birdId:b.id,plate:b.codigo||'',name:b.nombre||'',sex:(b.sexo||'').toLowerCase()==='hembra'?'Gallina':'Gallo',breed:b.raza||'',plumage:b.color||'',plateColor:b.color_placa||'',farm:b.criadero||'',comb:b.tipo_cresta||'',legColor:b.color_patas||'',birthDate:b.fecha_nacimiento||'',photoUrl:b.foto||'',fatherId:b.padre_id||'',motherId:b.madre_id||'',status:b.estado||'activo',notes:b.observaciones||'',createdAt:b.fecha_registro||'',updatedAt:b.fecha_registro||''}}
 function tnUser(u){if(!u)return {};return {userId:u.id||u.userId,name:u.nombre||u.name||'',email:u.correo||u.email||'',role:u.rol||u.role||'usuario',farmName:u.criadero??u.farmName??'',phone:u.telefono??u.phone??'',photoUrl:u.foto||u.photoUrl||''}}
 async function tnRequest(path,method='GET',body){
  const headers={'Accept':'application/json'};
@@ -96,7 +96,7 @@ case 'auth.backup':return await tnRequest('/api/auth/backup');
  }
  case 'birds.save':{
    const b=data.bird||{};
-   const fields={codigo:b.plate||null,nombre:b.name||'',sexo:/gallina|hembra/i.test(b.sex||'')?'hembra':'macho',raza:b.breed||null,color:b.plumage||null,fecha_nacimiento:b.birthDate||null,padre_id:b.fatherId||null,madre_id:b.motherId||null};
+   const fields={codigo:b.plate||null,nombre:b.name||'',sexo:/gallina|hembra/i.test(b.sex||'')?'hembra':'macho',raza:b.breed||null,color:b.plumage||null,color_placa:b.plateColor||null,criadero:b.farm||null,tipo_cresta:b.comb||null,color_patas:b.legColor||null,fecha_nacimiento:b.birthDate||null,padre_id:b.fatherId||null,madre_id:b.motherId||null};
    const id=b.birdId;
    const x=await tnRequest(id?'/api/ejemplares/'+encodeURIComponent(id):'/api/ejemplares',id?'PATCH':'POST',fields);
    return {ok:true,birdId:x.ejemplar?.id,bird:tnBird(x.ejemplar||{})};
@@ -222,10 +222,102 @@ async function dashboard(){
   if(failures.length){const n=$('dashNotice');n.classList.remove('hidden');n.innerHTML='<b>Dashboard cargado en modo seguro.</b> Algunas consultas del servidor no respondieron. <button id="dashRetry" class="secondary">Reintentar sincronización</button>';$('dashRetry').onclick=()=>route('dashboard')}
 }
 async function birds(){
-  contentEl.innerHTML=`<div class="panel"><div class="toolbar"><div><h3 class="section-title">Mis ejemplares</h3><span class="muted">Fotos, identidad y genealogía.</span></div><button id="newBird">+ Nuevo ejemplar</button></div><div id="birdForm"></div><div id="birdList">${skeletonCards(4)}</div></div>`;
+  contentEl.innerHTML=`<div class="panel"><div class="toolbar"><div><h3 class="section-title">Mis ejemplares</h3><span class="muted">Fotos, identidad y genealogía.</span></div><button id="newBird">+ Nuevo ejemplar</button></div><section class="bird-bulk panel"><div class="bird-bulk-head"><div><h3>Registro por Excel</h3><p class="muted">Descarga la plantilla, complétala en Excel y guárdala como CSV UTF-8 para subir varios ejemplares a la vez.</p></div><button type="button" id="downloadBirdTemplate" class="secondary">Descargar plantilla</button></div><div class="bird-bulk-fields"><label class="field"><span>Hoja completada (CSV)</span><input id="birdCsvFile" type="file" accept=".csv,text/csv"></label><label class="field"><span>Fotografías (opcional)</span><input id="birdBulkPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="muted">Escribe el nombre de cada archivo en la columna foto_archivo.</small></label></div><div id="birdBulkStatus" class="muted" role="status">La plantilla incluye los campos de la ficha y permite referenciar padre y madre por número de placa.</div><div id="birdBulkPreview"></div><button type="button" id="importBirdsBtn" disabled>Registrar ejemplares</button></section><div id="birdForm"></div><div id="birdList">${skeletonCards(4)}</div></div>`;
   const btn=document.getElementById('newBird');
   if(btn)btn.onclick=()=>birdEditor();
+  setupBirdBulkImport();
   await loadBirds();
+}
+const BIRD_CSV_COLUMNS=['nombre','numero_placa','color_placa','traba_criadero','fecha_nacimiento','color_plumaje','tipo_cresta','color_patas','sexo','padre_placa','madre_placa','foto_archivo'];
+const BIRD_ENUMS={
+ plumage:['Rubio','Giro','Cenizo','Colorado','Negro','Blanco','Pinto','Jabao','Marañón','Otro'],
+ comb:['Recta','Rosa / Rozón','Guisante','Nuez','Doble','Sin cresta','Otro'],
+ legColor:['Amarillas','Blancas','Negras','Verdes','Azules / Pizarra','Rosadas','Otro']
+};
+function parseBirdCsv(text){
+ text=String(text||'').replace(/^\uFEFF/,'');
+ const first=(text.split(/\r?\n/,1)[0]||'');
+ const counts={';':(first.match(/;/g)||[]).length,',':(first.match(/,/g)||[]).length,'\t':(first.match(/\t/g)||[]).length};
+ const delim=Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
+ const rows=[];let row=[],field='',quoted=false;
+ for(let i=0;i<text.length;i++){const c=text[i];
+   if(quoted){if(c==='"'&&text[i+1]==='"'){field+='"';i++}else if(c==='"')quoted=false;else field+=c;continue}
+   if(c==='"'&&field===''){quoted=true;continue}
+   if(c===delim){row.push(field.trim());field='';continue}
+   if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(field.trim());if(row.some(x=>x!==''))rows.push(row);row=[];field='';continue}
+   field+=c;
+ }
+ row.push(field.trim());if(row.some(x=>x!==''))rows.push(row);
+ if(!rows.length)throw Error('El archivo está vacío.');
+ const norm=x=>x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+ const aliases={nombre:'name',numero_placa:'plate',placa:'plate',color_placa:'plateColor',traba_criadero:'farm',criadero:'farm',fecha_nacimiento:'birthDate',color_plumaje:'plumage',plumaje:'plumage',tipo_cresta:'comb',cresta:'comb',color_patas:'legColor',sexo:'sex',padre_placa:'fatherPlate',madre_placa:'motherPlate',foto_archivo:'photoFile',fotografia:'photoFile'};
+ const headers=rows.shift().map(x=>aliases[norm(x)]||'');
+ const required=['name','plate','plateColor','farm','birthDate','plumage','comb','legColor','sex','fatherPlate','motherPlate','photoFile'];
+ if(required.some(k=>!headers.includes(k)))throw Error('Usa la plantilla de CryApp; faltan columnas requeridas.');
+ if(rows.length>250)throw Error('La plantilla admite hasta 250 ejemplares por carga.');
+ return rows.filter(r=>r.some(x=>x!=='')).map((r,i)=>({line:i+2,name:r[headers.indexOf('name')]||'',plate:r[headers.indexOf('plate')]||'',plateColor:r[headers.indexOf('plateColor')]||'',farm:r[headers.indexOf('farm')]||'',birthDate:r[headers.indexOf('birthDate')]||'',plumage:r[headers.indexOf('plumage')]||'',comb:r[headers.indexOf('comb')]||'',legColor:r[headers.indexOf('legColor')]||'',sex:r[headers.indexOf('sex')]||'',fatherPlate:r[headers.indexOf('fatherPlate')]||'',motherPlate:r[headers.indexOf('motherPlate')]||'',photoFile:r[headers.indexOf('photoFile')]||'',errors:[]}));
+}
+function birdCsvDate(raw){
+ if(!raw)return '';
+ let s=String(raw).trim(),m;
+ if(/^\d+(?:\.\d+)?$/.test(s)){const n=Number(s);if(n>0&&n<100000){const d=new Date(Date.UTC(1899,11,30)+Math.floor(n)*86400000);s=d.toISOString().slice(0,10)}}
+ if((m=/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(s)))s=`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(s))throw Error('usa fecha DD/MM/AAAA o AAAA-MM-DD');
+ const d=new Date(s+'T00:00:00Z');if(!Number.isFinite(d.getTime())||d.toISOString().slice(0,10)!==s)throw Error('fecha inválida');
+ if(s>new Date().toISOString().slice(0,10))throw Error('la fecha no puede ser futura');return s;
+}
+function birdEnumValue(value,choices,label){
+ if(!value)return '';const found=choices.find(x=>x.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()===value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase());
+ if(!found)throw Error(label+' no coincide con las opciones de la ficha');return found;
+}
+function validateBirdCsvRows(rows){
+ const existing=new Map((cache.birds||[]).filter(x=>x.plate).map(x=>[x.plate.trim().toLowerCase(),x]));
+ const batch=new Map();
+ for(const r of rows){
+  try{
+   if(!r.name.trim())throw Error('falta el nombre');
+   if(!r.sex||!/^(gallo|gallina)$/i.test(r.sex.trim()))throw Error('sexo debe ser Gallo o Gallina');
+   r.sex=/^gallina$/i.test(r.sex.trim())?'Gallina':'Gallo';
+   r.plumage=birdEnumValue(r.plumage,BIRD_ENUMS.plumage,'Color de plumaje');
+   r.comb=birdEnumValue(r.comb,BIRD_ENUMS.comb,'Tipo de cresta');
+   r.legColor=birdEnumValue(r.legColor,BIRD_ENUMS.legColor,'Color de patas');
+   r.birthDate=birdCsvDate(r.birthDate);
+   const key=r.plate.trim().toLowerCase();
+   if(key){if(existing.has(key))throw Error('el número de placa ya está registrado');if(batch.has(key))throw Error('el número de placa está repetido en la hoja');batch.set(key,r)}
+  }catch(e){r.errors.push(e.message)}
+ }
+ const refs=new Map([...existing].map(([k,b])=>[k,b]));
+ for(const [k,r] of batch)refs.set(k,{sex:r.sex,name:r.name,plate:r.plate,isBatch:true});
+ for(const r of rows){
+  for(const [ref,expected,label] of [[r.fatherPlate,'Gallo','padre_placa'],[r.motherPlate,'Gallina','madre_placa']]){
+   if(!ref.trim())continue;const b=refs.get(ref.trim().toLowerCase());
+   if(!b)r.errors.push(label+' no corresponde a una placa registrada o incluida en la hoja');
+   else if(b.sex!==expected)r.errors.push(label+' debe ser '+expected);
+  }
+ }
+ return rows;
+}
+function renderBirdCsvPreview(rows){
+ const el=document.getElementById('birdBulkPreview');if(!el)return;
+ const bad=rows.flatMap(r=>r.errors.map(e=>`Fila ${r.line}: ${e}`));
+ el.innerHTML=`<p><b>${rows.length}</b> ejemplar(es) detectados · <b>${bad.length?bad.length+' error(es)':'sin errores'}</b></p><div class="bird-bulk-table-wrap"><table class="bird-bulk-table"><thead><tr><th>Fila</th><th>Nombre</th><th>Placa</th><th>Sexo</th><th>Validación</th></tr></thead><tbody>${rows.slice(0,8).map(r=>`<tr><td>${r.line}</td><td>${esc(r.name)}</td><td>${esc(r.plate||'—')}</td><td>${esc(r.sex||'')}</td><td class="${r.errors.length?'error':'ready'}">${esc(r.errors.join('; ')||'Lista')}</td></tr>`).join('')}</tbody></table></div>${bad.length?`<ul class="bird-bulk-errors">${bad.slice(0,15).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${rows.length>8?'<small class="muted">Vista previa de las primeras 8 filas; se procesarán todas.</small>':''}`;
+}
+function setupBirdBulkImport(){
+ const download=document.getElementById('downloadBirdTemplate'),csv=document.getElementById('birdCsvFile'),photos=document.getElementById('birdBulkPhotos'),go=document.getElementById('importBirdsBtn'),status=document.getElementById('birdBulkStatus');
+ if(!download||!csv||!go)return;let parsed=[];
+ download.onclick=()=>{const blob=new Blob(['\uFEFF'+BIRD_CSV_COLUMNS.join(';')+'\r\n'],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='plantilla_ejemplares_cryapp.csv';a.click();URL.revokeObjectURL(url)};
+ csv.onchange=async()=>{parsed=[];go.disabled=true;document.getElementById('birdBulkPreview').innerHTML='';try{const f=csv.files?.[0];if(!f)return;if(f.size>2_000_000)throw Error('El CSV supera el límite de 2 MB.');parsed=validateBirdCsvRows(parseBirdCsv(await f.text()));renderBirdCsvPreview(parsed);const bad=parsed.some(r=>r.errors.length);go.disabled=bad||!parsed.length;status.textContent=bad?'Corrige los errores en Excel y vuelve a subir el CSV.':`${parsed.length} ejemplar(es) listo(s) para registrar.`;status.className=bad?'upload-state error':'upload-state ready'}catch(e){status.textContent=e.message;status.className='upload-state error'}};
+ go.onclick=async()=>{if(!parsed.length||parsed.some(r=>r.errors.length))return;if(!confirm(`¿Registrar ${parsed.length} ejemplar(es) en CryApp?`))return;go.disabled=true;csv.disabled=true;photos.disabled=true;let made=0,linked=0,photoCount=0;const failed=[];const madeByRow=new Map(),byPlate=new Map((cache.birds||[]).filter(x=>x.plate).map(x=>[x.plate.trim().toLowerCase(),x]));
+ try{
+  status.textContent='Registrando ejemplares…';status.className='upload-state uploading';
+  for(const r of parsed){try{const res=await api('birds.save',{bird:{name:r.name.trim(),plate:r.plate.trim(),plateColor:r.plateColor.trim(),farm:r.farm.trim(),birthDate:r.birthDate,plumage:r.plumage,comb:r.comb,legColor:r.legColor,sex:r.sex,fatherId:'',motherId:''}});if(!res?.birdId)throw Error('la API no devolvió el ID');made++;const b={...r,birdId:res.birdId};madeByRow.set(r.line,b);if(r.plate)byPlate.set(r.plate.trim().toLowerCase(),{...b});}catch(e){failed.push(`Fila ${r.line}: ${e.message}`)}status.textContent=`Registrados ${made} de ${parsed.length}…`}
+  for(const r of parsed){const own=madeByRow.get(r.line);if(!own)continue;try{const father=r.fatherPlate?byPlate.get(r.fatherPlate.trim().toLowerCase()):null,mother=r.motherPlate?byPlate.get(r.motherPlate.trim().toLowerCase()):null;if((r.fatherPlate&&!father)||(r.motherPlate&&!mother))throw Error('no se pudo resolver el padre o la madre');if(father?.birdId===own.birdId||mother?.birdId===own.birdId)throw Error('un ejemplar no puede ser su propio progenitor');if(father||mother){await api('birds.save',{bird:{birdId:own.birdId,fatherId:father?.birdId||'',motherId:mother?.birdId||''}});linked++}}catch(e){failed.push(`Linaje fila ${r.line}: ${e.message}`)}}
+  const photoFiles=Array.from(photos.files||[]);const photoMap=new Map(photoFiles.map(f=>[f.name.trim().toLowerCase(),f]));
+  for(const r of parsed){if(!r.photoFile.trim())continue;const own=madeByRow.get(r.line);if(!own)continue;const f=photoMap.get(r.photoFile.trim().toLowerCase());try{if(!f)throw Error('no se encontró el archivo '+r.photoFile);if(f.size>15*1024*1024)throw Error('la foto supera 15 MB');const up=await api('birds.photo',{birdId:own.birdId,photo:await file64(f)});if(!up?.photoSaved)throw Error('no se pudo guardar la foto');photoCount++}catch(e){failed.push(`Foto fila ${r.line}: ${e.message}`)}}
+  clearDataCache();await loadBirds();status.textContent=`Proceso terminado: ${made} creados, ${linked} linajes vinculados y ${photoCount} fotos guardadas.${failed.length?' '+failed.length+' incidencia(s); revisa el detalle.':''}`;status.className=failed.length?'upload-state error':'upload-state ready';if(failed.length)document.getElementById('birdBulkPreview').insertAdjacentHTML('beforeend',`<ul class="bird-bulk-errors">${failed.slice(0,20).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`);else toast('Carga masiva completada');
+ }catch(e){status.textContent='La carga se interrumpió: '+e.message+'; se guardaron '+made+' ejemplar(es).';status.className='upload-state error';clearDataCache();await loadBirds()}
+ finally{csv.disabled=false;photos.disabled=false;go.disabled=parsed.length===0||parsed.some(r=>r.errors.length);go.textContent='Registrar ejemplares'}
+ };
 }
 function birdAncestorContains(startId,seekId,seen=new Set()){
  if(!startId||seen.has(String(startId)))return false;seen.add(String(startId));
