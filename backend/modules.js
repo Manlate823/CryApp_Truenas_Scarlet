@@ -29,11 +29,37 @@ module.exports=function(pool){
   }
   if(mod==='read'&&req.method==='POST')return send(res,200,{ok:true});
   const allowed=['events','market','messages'];if(!allowed.includes(mod))return send(res,404,{error:'Módulo no implementado'});
-  if(req.method==='GET'&&!id){const r=await pool.query('SELECT id,owner_id,payload,created_at FROM cryapp_module_records WHERE module=$1 AND ($1=$2 OR owner_id=$3) ORDER BY created_at DESC LIMIT 500',[mod,'market',uid]);return send(res,200,{ok:true,items:r.rows.map(x=>({...x.payload,[mod==='events'?'eventId':mod==='market'?'listingId':'messageId']:x.id,userId:x.owner_id,createdAt:x.created_at}))})}
+  if(req.method==='GET'&&!id){
+   if(mod==='market'){
+    const r=await pool.query("SELECT r.id,r.owner_id,r.payload,r.created_at,e.foto AS bird_photo_url FROM cryapp_module_records r LEFT JOIN ejemplares e ON e.id::text=r.payload->>'birdId' AND e.usuario_id=r.owner_id WHERE r.module=$1 ORDER BY r.created_at DESC LIMIT 500",['market']);
+    return send(res,200,{ok:true,items:r.rows.map(x=>Object.assign({},x.payload,{listingId:x.id,userId:x.owner_id,createdAt:x.created_at,birdPhotoUrl:x.bird_photo_url||''}))});
+   }
+   const r=await pool.query('SELECT id,owner_id,payload,created_at FROM cryapp_module_records WHERE module=$1 AND ($1=$2 OR owner_id=$3) ORDER BY created_at DESC LIMIT 500',[mod,'market',uid]);return send(res,200,{ok:true,items:r.rows.map(x=>({...x.payload,[mod==='events'?'eventId':mod==='market'?'listingId':'messageId']:x.id,userId:x.owner_id,createdAt:x.created_at}))})
+  }
   if(req.method==='POST'&&!id){const b=await body(req);const item=mod==='messages'?{recipientId:b.recipientId,text:b.text}:b.item;if(!item||typeof item!=='object'||Array.isArray(item))return send(res,400,{error:'Datos inválidos'});if(mod==='messages'&&(!UUID.test(item.recipientId||'')||!String(item.text||'').trim()))return send(res,400,{error:'Destinatario y texto requeridos'});const r=await pool.query('INSERT INTO cryapp_module_records(id,owner_id,module,payload) VALUES($1,$2,$3,$4) RETURNING id',[randomUUID(),uid,mod,JSON.stringify(item)]);return send(res,201,{ok:true,id:r.rows[0].id})}
   if(id&&!UUID.test(id))return send(res,400,{error:'Identificador inválido'});
   if(req.method==='DELETE'&&id){const r=await pool.query('DELETE FROM cryapp_module_records WHERE id=$1 AND owner_id=$2 AND module=$3',[id,uid,mod]);return send(res,r.rowCount?200:404,r.rowCount?{ok:true}:{error:'Registro no encontrado'})}
-  if(req.method==='PATCH'&&id&&mod==='market'){const b=await body(req);if(!['ACTIVE','RESERVED','SOLD'].includes(b.status))return send(res,400,{error:'Estado inválido'});const r=await pool.query("UPDATE cryapp_module_records SET payload=jsonb_set(payload,'{status}',to_jsonb($1::text)) WHERE id=$2 AND owner_id=$3 AND module='market'",[b.status,id,uid]);return send(res,r.rowCount?200:404,r.rowCount?{ok:true}:{error:'Publicación no encontrada'})}
+  if(req.method==='PATCH'&&id&&mod==='market'){
+   const b=await body(req);
+   if(Object.prototype.hasOwnProperty.call(b,'status')){
+    if(!['ACTIVE','RESERVED','SOLD'].includes(b.status))return send(res,400,{error:'Estado inválido'});
+    const r=await pool.query("UPDATE cryapp_module_records SET payload=jsonb_set(payload,'{status}',to_jsonb($1::text)) WHERE id=$2 AND owner_id=$3 AND module='market'",[b.status,id,uid]);return send(res,r.rowCount?200:404,r.rowCount?{ok:true}:{error:'Publicación no encontrada'});
+   }
+   const item=b.item,types=['VENTA','REPRODUCCION','HUEVOS','ALIMENTOS','ACCESORIOS','EQUIPOS'];
+   if(!item||typeof item!=='object'||Array.isArray(item))return send(res,400,{error:'Datos inválidos'});
+   if(Object.keys(item).some(k=>!['title','type','price','location','description','birdId','currency'].includes(k)))return send(res,400,{error:'Campo no permitido'});
+   if(typeof item.title!=='string'||!item.title.trim()||item.title.length>150)return send(res,400,{error:'Título inválido'});
+   if(!types.includes(item.type))return send(res,400,{error:'Categoría inválida'});
+   if(item.description!==undefined&&(typeof item.description!=='string'||item.description.length>5000))return send(res,400,{error:'Descripción inválida'});
+   if(item.location!==undefined&&(typeof item.location!=='string'||item.location.length>200))return send(res,400,{error:'Ubicación inválida'});
+   const price=item.price===''||item.price===null||item.price===undefined?null:Number(item.price);
+   if(price!==null&&(!Number.isFinite(price)||price<0))return send(res,400,{error:'Precio inválido'});
+   const birdId=item.birdId||'';
+   if(birdId&&!UUID.test(birdId))return send(res,400,{error:'Ejemplar inválido'});
+   const saved={...item,title:item.title.trim(),price,birdId,currency:'USD'};
+   const r=await pool.query("UPDATE cryapp_module_records SET payload=payload||$1::jsonb WHERE id=$2 AND owner_id=$3 AND module='market' RETURNING id",[JSON.stringify(saved),id,uid]);
+   return send(res,r.rowCount?200:404,r.rowCount?{ok:true,id:r.rows[0].id}:{error:'Publicación no encontrada'});
+  }
   return send(res,405,{error:'Método no permitido'});
  }catch(e){console.error('Modules:',e.message);return send(res,500,{error:'No se pudo completar la operación. Revisa los permisos y las tablas de PostgreSQL.'})}};
 };
