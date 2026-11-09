@@ -26,7 +26,7 @@ module.exports=function(pool){
   if(mod==='crosses'&&req.method==='POST'){
    const b=await body(req),item=b.item||{};const fatherId=String(item.fatherId||''),motherId=String(item.motherId||''),crossDate=String(item.crossDate||'');
    if(!UUID.test(fatherId)||!UUID.test(motherId)||fatherId===motherId)return send(res,400,{error:'Selecciona un gallo y una gallina distintos'});
-   if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(crossDate)||Number.isNaN(Date.parse(crossDate+'T00:00:00Z'))||new Date(crossDate+'T00:00:00Z').toISOString().slice(0,10)!==crossDate)return send(res,400,{error:'Fecha de cruce inválida'});
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(crossDate)||Number.isNaN(Date.parse(crossDate+'T00:00:00Z'))||new Date(crossDate+'T00:00:00Z').toISOString().slice(0,10)!==crossDate)return send(res,400,{error:'Fecha de cruce inválida'});
    const numeric=(v,label)=>{const n=v===''||v===undefined||v===null?0:Number(v);if(!Number.isInteger(n)||n<0)return {error:`${label} debe ser un número entero igual o mayor que cero`};return {value:n}};
    const eggs=numeric(item.eggs,'Huevos'),fertile=numeric(item.fertile,'Fértiles'),born=numeric(item.born,'Nacidos');if(eggs.error)return send(res,400,{error:eggs.error});if(fertile.error)return send(res,400,{error:fertile.error});if(born.error)return send(res,400,{error:born.error});
    if(fertile.value>eggs.value||born.value>fertile.value)return send(res,400,{error:'Los fértiles no pueden superar los huevos y los nacidos no pueden superar los fértiles'});
