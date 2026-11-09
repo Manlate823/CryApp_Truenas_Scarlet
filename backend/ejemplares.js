@@ -19,7 +19,8 @@ const TEXT_FIELDS = {
   color_patas: 100,
   foto: 10_000,
   estado: 30,
-  observaciones: 10_000
+  observaciones: 10_000,
+  numero_cruce: 20
 };
 const EDITABLE_FIELDS = new Set([
   ...Object.keys(TEXT_FIELDS),
@@ -120,6 +121,30 @@ async function validateParents(pool, usuarioId, padreId, madreId, ownId) {
   return null;
 }
 
+
+let breedingSchemaReady;
+function ensureBreedingSchema(pool) {
+  return breedingSchemaReady ||= (async () => {
+    await pool.query('ALTER TABLE ejemplares ADD COLUMN IF NOT EXISTS numero_cruce text');
+    await pool.query(`CREATE TABLE IF NOT EXISTS cryapp_breeding_crosses (id uuid PRIMARY KEY, owner_id uuid NOT NULL, numero_cruce text NOT NULL, padre_id uuid NOT NULL, madre_id uuid NOT NULL, fecha_cruce date NOT NULL, huevos integer NOT NULL DEFAULT 0 CHECK (huevos >= 0), fertiles integer NOT NULL DEFAULT 0 CHECK (fertiles >= 0), nacidos integer NOT NULL DEFAULT 0 CHECK (nacidos >= 0), fecha_registro timestamptz NOT NULL DEFAULT now(), UNIQUE(owner_id, numero_cruce))`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS cryapp_breeding_crosses_owner_date ON cryapp_breeding_crosses(owner_id, fecha_cruce DESC)`);
+  })().catch(error => { breedingSchemaReady = null; throw error; });
+}
+
+async function resolveCrossNumber(pool, usuarioId, padreId, madreId, requested) {
+  if (!padreId || !madreId) {
+    return requested ? { error: 'El número de cruce necesita padre y madre asignados' } : { value: null };
+  }
+  const params = requested ? [usuarioId, padreId, madreId, requested] : [usuarioId, padreId, madreId];
+  const result = await pool.query(`
+    SELECT numero_cruce FROM cryapp_breeding_crosses
+    WHERE owner_id=$1 AND padre_id=$2 AND madre_id=$3 ${requested ? 'AND numero_cruce=$4' : ''}
+    ORDER BY fecha_cruce DESC, fecha_registro DESC LIMIT 1
+  `, params);
+  if (result.rows.length) return { value: result.rows[0].numero_cruce };
+  return requested ? { error: 'Ese número no corresponde a los padres seleccionados' } : { value: null };
+}
+
 module.exports = function createEjemplares(pool) {
   return async function ejemplares(req, res) {
     const authorization = req.headers.authorization || '';
@@ -145,6 +170,7 @@ module.exports = function createEjemplares(pool) {
     if (id && !UUID_RE.test(id)) return reply(res, 400, { error: 'ID de ejemplar invalido' });
 
     try {
+      await ensureBreedingSchema(pool);
       // POST /api/ejemplares/:id/foto (JSON base64, JWT requerido).
       if (req.method === 'POST' && parts.length === 4 && parts[3] === 'foto') {
         if (!UUID_RE.test(parts[2])) return reply(res, 400, {error:'ID invalido'});
@@ -188,7 +214,10 @@ module.exports = function createEjemplares(pool) {
         if (invalid) return reply(res, 400, { error: invalid });
         const parentError = await validateParents(pool, usuarioId, data.padre_id || null, data.madre_id || null, null);
         if (parentError) return reply(res, 400, { error: parentError });
-        const fields = ['codigo', 'nombre', 'sexo', 'raza', 'color', 'color_placa', 'criadero', 'tipo_cresta', 'color_patas', 'fecha_nacimiento', 'foto', 'padre_id', 'madre_id', 'estado', 'observaciones'];
+        const cross = await resolveCrossNumber(pool, usuarioId, data.padre_id || null, data.madre_id || null, data.numero_cruce || null);
+        if (cross.error) return reply(res, 400, { error: cross.error });
+        data.numero_cruce = cross.value;
+        const fields = ['codigo', 'nombre', 'sexo', 'raza', 'color', 'color_placa', 'criadero', 'tipo_cresta', 'color_patas', 'fecha_nacimiento', 'foto', 'padre_id', 'madre_id', 'numero_cruce', 'estado', 'observaciones'];
         const values = fields.map(field => {
           const value = data[field];
           if (field === 'estado') return value || 'activo';
@@ -220,6 +249,15 @@ module.exports = function createEjemplares(pool) {
           id
         );
         if (parentError) return reply(res, 400, { error: parentError });
+        const pairChanged = Object.hasOwn(data, 'padre_id') || Object.hasOwn(data, 'madre_id');
+        if (pairChanged || Object.hasOwn(data, 'numero_cruce')) {
+          const fatherId = Object.hasOwn(data, 'padre_id') ? data.padre_id : current.rows[0].padre_id;
+          const motherId = Object.hasOwn(data, 'madre_id') ? data.madre_id : current.rows[0].madre_id;
+          const requested = Object.hasOwn(data, 'numero_cruce') ? data.numero_cruce : null;
+          const cross = await resolveCrossNumber(pool, usuarioId, fatherId, motherId, requested);
+          if (cross.error) return reply(res, 400, { error: cross.error });
+          data.numero_cruce = cross.value;
+        }
         const fields = Object.keys(data);
         const values = fields.map(field => field === 'nombre' ? data[field].trim() : data[field]);
         const assignments = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
